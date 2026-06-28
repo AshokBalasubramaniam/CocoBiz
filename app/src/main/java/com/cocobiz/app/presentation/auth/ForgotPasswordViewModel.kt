@@ -14,15 +14,17 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 enum class ForgotStep { SEND_OTP, VERIFY_OTP, SUCCESS }
+enum class OtpChannel { EMAIL, SMS }
 
 data class ForgotUiState(
     val identifier: String = "",
+    val channel: OtpChannel = OtpChannel.EMAIL,
     val otp: String = "",
     val newPassword: String = "",
     val confirmPassword: String = "",
     val step: ForgotStep = ForgotStep.SEND_OTP,
     val maskedContact: String = "",
-    val userEmail: String = "",   // canonical email returned by backend (used for verify)
+    val canonicalContact: String = "",  // actual email/phone for verify-otp
     val isLoading: Boolean = false,
     val error: String? = null
 )
@@ -36,6 +38,7 @@ class ForgotPasswordViewModel @Inject constructor(
     val state: StateFlow<ForgotUiState> = _state.asStateFlow()
 
     fun onIdentifierChange(v: String) = _state.update { it.copy(identifier = v, error = null) }
+    fun onChannelChange(ch: OtpChannel) = _state.update { it.copy(channel = ch, error = null) }
     fun onOtpChange(v: String) = _state.update { it.copy(otp = v, error = null) }
     fun onNewPasswordChange(v: String) = _state.update { it.copy(newPassword = v, error = null) }
     fun onConfirmPasswordChange(v: String) = _state.update { it.copy(confirmPassword = v, error = null) }
@@ -49,8 +52,21 @@ class ForgotPasswordViewModel @Inject constructor(
         viewModelScope.launch {
             _state.update { it.copy(isLoading = true, error = null) }
             try {
-                val resp = authApi.sendOtp(SendOtpRequest(s.identifier.trim()))
-                _state.update { it.copy(isLoading = false, step = ForgotStep.VERIFY_OTP, maskedContact = resp.masked, userEmail = resp.userEmail) }
+                val resp = authApi.sendOtp(
+                    SendOtpRequest(
+                        identifier = s.identifier.trim(),
+                        channel = s.channel.name
+                    )
+                )
+                val canonical = if (s.channel == OtpChannel.SMS) resp.userPhone else resp.userEmail
+                _state.update {
+                    it.copy(
+                        isLoading = false,
+                        step = ForgotStep.VERIFY_OTP,
+                        maskedContact = resp.masked,
+                        canonicalContact = canonical
+                    )
+                }
             } catch (e: Exception) {
                 _state.update { it.copy(isLoading = false, error = e.toUserMessage()) }
             }
@@ -60,16 +76,15 @@ class ForgotPasswordViewModel @Inject constructor(
     fun verifyOtp(onSuccess: () -> Unit) {
         val s = _state.value
         when {
-            s.otp.isBlank() -> { _state.update { it.copy(error = "Enter the OTP sent to your contact") }; return }
+            s.otp.isBlank() -> { _state.update { it.copy(error = "Enter the OTP") }; return }
             s.newPassword.length < 6 -> { _state.update { it.copy(error = "New password must be at least 6 characters") }; return }
             s.newPassword != s.confirmPassword -> { _state.update { it.copy(error = "Passwords don't match") }; return }
         }
         viewModelScope.launch {
             _state.update { it.copy(isLoading = true, error = null) }
             try {
-                // Use canonical email (returned from send-otp) so OTP lookup always matches
-                val verifyIdentifier = s.userEmail.ifBlank { s.identifier.trim() }
-                authApi.verifyOtp(VerifyOtpRequest(verifyIdentifier, s.otp.trim(), s.newPassword))
+                val verifyId = s.canonicalContact.ifBlank { s.identifier.trim() }
+                authApi.verifyOtp(VerifyOtpRequest(verifyId, s.otp.trim(), s.newPassword))
                 _state.update { it.copy(isLoading = false, step = ForgotStep.SUCCESS) }
                 onSuccess()
             } catch (e: Exception) {

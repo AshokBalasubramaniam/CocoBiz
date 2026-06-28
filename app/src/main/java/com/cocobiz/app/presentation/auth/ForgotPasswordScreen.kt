@@ -67,12 +67,56 @@ fun ForgotPasswordScreen(
                         modifier = Modifier.fillMaxWidth()
                     )
                     Text(
-                        "Enter your username, registered email or phone number. We'll send an OTP to reset your password.",
+                        "Choose how you want to receive the OTP to reset your password.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = TextAlign.Center,
                         modifier = Modifier.fillMaxWidth()
                     )
+
+                    // ── Channel selector ─────────────────────────────────
+                    Text(
+                        "Send OTP via",
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        // Email chip
+                        FilterChip(
+                            selected = state.channel == OtpChannel.EMAIL,
+                            onClick = { viewModel.onChannelChange(OtpChannel.EMAIL) },
+                            label = { Text("Email", fontWeight = FontWeight.Medium) },
+                            leadingIcon = {
+                                Icon(Icons.Default.Email, contentDescription = null, modifier = Modifier.size(18.dp))
+                            },
+                            modifier = Modifier.weight(1f)
+                        )
+                        // SMS chip
+                        FilterChip(
+                            selected = state.channel == OtpChannel.SMS,
+                            onClick = { viewModel.onChannelChange(OtpChannel.SMS) },
+                            label = { Text("SMS", fontWeight = FontWeight.Medium) },
+                            leadingIcon = {
+                                Icon(Icons.Default.Sms, contentDescription = null, modifier = Modifier.size(18.dp))
+                            },
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+
+                    // Hint below chips
+                    Text(
+                        if (state.channel == OtpChannel.EMAIL)
+                            "OTP will be sent to your registered email address"
+                        else
+                            "OTP will be sent as SMS to your registered phone number",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
                     OutlinedTextField(
                         value = state.identifier,
                         onValueChange = viewModel::onIdentifierChange,
@@ -83,9 +127,11 @@ fun ForgotPasswordScreen(
                         shape = RoundedCornerShape(14.dp),
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done)
                     )
+
                     if (state.error != null) {
                         Text(state.error!!, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
                     }
+
                     Button(
                         onClick = viewModel::sendOtp,
                         modifier = Modifier.fillMaxWidth().height(52.dp),
@@ -95,14 +141,24 @@ fun ForgotPasswordScreen(
                         if (state.isLoading) {
                             CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color.White, strokeWidth = 2.dp)
                         } else {
-                            Text("Send OTP", fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+                            Icon(
+                                if (state.channel == OtpChannel.EMAIL) Icons.Default.Email else Icons.Default.Sms,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                "Send OTP via ${if (state.channel == OtpChannel.EMAIL) "Email" else "SMS"}",
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = 16.sp
+                            )
                         }
                     }
                 }
 
                 ForgotStep.VERIFY_OTP, ForgotStep.SUCCESS -> {
                     Icon(
-                        Icons.Default.MarkEmailRead,
+                        if (state.channel == OtpChannel.SMS) Icons.Default.Sms else Icons.Default.MarkEmailRead,
                         contentDescription = null,
                         modifier = Modifier.size(56.dp).align(Alignment.CenterHorizontally),
                         tint = MaterialTheme.colorScheme.primary
@@ -114,33 +170,38 @@ fun ForgotPasswordScreen(
                         textAlign = TextAlign.Center,
                         modifier = Modifier.fillMaxWidth()
                     )
+
+                    // Delivery confirmation card
                     Card(
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
                         shape = RoundedCornerShape(12.dp)
                     ) {
                         Column(
-                            modifier = Modifier.padding(12.dp),
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp).fillMaxWidth(),
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
                             Text(
-                                "OTP sent to",
+                                if (state.channel == OtpChannel.SMS) "OTP sent via SMS to" else "OTP sent via Email to",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onPrimaryContainer
                             )
                             Text(
-                                state.maskedContact.ifBlank { "your registered email" },
+                                state.maskedContact.ifBlank { "your registered contact" },
                                 style = MaterialTheme.typography.bodyMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onPrimaryContainer,
                                 textAlign = TextAlign.Center
                             )
-                            Text(
-                                "Check your inbox and spam folder",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer
-                            )
+                            if (state.channel == OtpChannel.EMAIL) {
+                                Text(
+                                    "Check inbox and spam folder",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                                )
+                            }
                         }
                     }
+
                     OutlinedTextField(
                         value = state.otp,
                         onValueChange = viewModel::onOtpChange,
@@ -183,9 +244,11 @@ fun ForgotPasswordScreen(
                         shape = RoundedCornerShape(14.dp),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done)
                     )
+
                     if (state.error != null) {
                         Text(state.error!!, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
                     }
+
                     Button(
                         onClick = { viewModel.verifyOtp(onResetSuccess) },
                         modifier = Modifier.fillMaxWidth().height(52.dp),

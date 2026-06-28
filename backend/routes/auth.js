@@ -5,6 +5,7 @@ const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const Otp = require('../models/Otp');
 const { sendOtpEmail } = require('../services/emailService');
+const { sendOtpSms } = require('../services/smsService');
 
 function generateOtp() {
   return Math.floor(100000 + Math.random() * 900000).toString();
@@ -83,7 +84,7 @@ router.post('/login', async (req, res) => {
 // POST /api/auth/send-otp
 router.post('/send-otp', async (req, res) => {
   try {
-    const { identifier } = req.body;
+    const { identifier, channel = 'EMAIL' } = req.body; // channel: 'EMAIL' | 'SMS'
     if (!identifier) return res.status(400).json({ error: 'Username, email or phone required' });
 
     const cleaned = identifier.trim().toLowerCase();
@@ -92,31 +93,43 @@ router.post('/send-otp', async (req, res) => {
     });
     if (!user) return res.status(404).json({ error: 'No account found with this username, email or phone' });
 
-    if (!user.email) return res.status(400).json({ error: 'No email address registered on this account. Cannot send OTP.' });
-
     const otp = generateOtp();
-    // Always store OTP keyed to the user's registered email
-    await Otp.deleteMany({ identifier: user.email });
-    await Otp.create({ identifier: user.email, otp, expiresAt: new Date(Date.now() + 10 * 60 * 1000) });
 
-    const masked = user.email.replace(/(.{2}).+(@.+)/, '$1***$2');
-    const emailReady = process.env.EMAIL_USER && process.env.EMAIL_USER !== 'your_email@gmail.com' && process.env.EMAIL_PASS && process.env.EMAIL_PASS !== 'your_app_password';
-
-    if (emailReady) {
+    if (channel === 'SMS') {
+      if (!user.phone) return res.status(400).json({ error: 'No phone number registered on this account.' });
+      // Store OTP keyed to phone
+      await Otp.deleteMany({ identifier: user.phone });
+      await Otp.create({ identifier: user.phone, otp, expiresAt: new Date(Date.now() + 10 * 60 * 1000) });
       try {
-        await sendOtpEmail(user.email, otp);
-        console.log(`OTP sent to ${user.email}`);
-      } catch (mailErr) {
-        console.error('Email send failed:', mailErr.message);
-        // Still continue — OTP is saved; user can check logs if needed
-        console.log(`[FALLBACK] OTP for ${user.email}: ${otp}`);
+        await sendOtpSms(user.phone, otp);
+        console.log(`SMS OTP sent to ${user.phone}`);
+      } catch (smsErr) {
+        console.error('SMS send failed:', smsErr.message);
+        console.log(`[FALLBACK] OTP for ${user.phone}: ${otp}`);
       }
+      const masked = user.phone.replace(/(\d{2})\d+(\d{2})/, '$1******$2');
+      return res.json({ message: 'OTP sent via SMS', masked, userPhone: user.phone });
     } else {
-      // Email not configured — log OTP so it's visible in Render.com logs
-      console.log(`[NO-EMAIL-CONFIG] OTP for ${user.email}: ${otp}`);
+      // EMAIL channel
+      if (!user.email) return res.status(400).json({ error: 'No email address registered on this account.' });
+      await Otp.deleteMany({ identifier: user.email });
+      await Otp.create({ identifier: user.email, otp, expiresAt: new Date(Date.now() + 10 * 60 * 1000) });
+      const emailReady = process.env.EMAIL_USER && process.env.EMAIL_USER !== 'your_email@gmail.com'
+        && process.env.EMAIL_PASS && process.env.EMAIL_PASS !== 'your_app_password';
+      if (emailReady) {
+        try {
+          await sendOtpEmail(user.email, otp);
+          console.log(`Email OTP sent to ${user.email}`);
+        } catch (mailErr) {
+          console.error('Email send failed:', mailErr.message);
+          console.log(`[FALLBACK] OTP for ${user.email}: ${otp}`);
+        }
+      } else {
+        console.log(`[NO-EMAIL-CONFIG] OTP for ${user.email}: ${otp}`);
+      }
+      const masked = user.email.replace(/(.{2}).+(@.+)/, '$1***$2');
+      return res.json({ message: 'OTP sent via Email', masked, userEmail: user.email });
     }
-
-    res.json({ message: 'OTP generated', masked, userEmail: user.email });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -131,20 +144,23 @@ router.post('/verify-otp', async (req, res) => {
     if (newPassword.length < 6)
       return res.status(400).json({ error: 'Password must be at least 6 characters' });
 
-    // Resolve identifier (username/email/phone) → user → canonical email for OTP lookup
+    // Resolve identifier → user → find OTP by email or phone
     const cleaned = identifier.trim().toLowerCase();
     const user = await User.findOne({
       $or: [{ email: cleaned }, { phone: cleaned }, { username: cleaned }]
     });
     if (!user) return res.status(404).json({ error: 'No account found' });
 
-    const record = await Otp.findOne({ identifier: user.email, otp });
+    // OTP may be stored against email or phone depending on channel used
+    const record = await Otp.findOne({
+      $or: [{ identifier: user.email, otp }, { identifier: user.phone, otp }]
+    });
     if (!record) return res.status(400).json({ error: 'Invalid or expired OTP' });
     if (record.expiresAt < new Date()) return res.status(400).json({ error: 'OTP expired' });
 
     const passwordHash = await bcrypt.hash(newPassword, 12);
     await User.findByIdAndUpdate(user._id, { passwordHash });
-    await Otp.deleteMany({ identifier: user.email });
+    await Otp.deleteMany({ identifier: record.identifier });
 
     const token = generateToken(user._id.toString(), user.username);
     res.json({ message: 'Password reset successful', token });

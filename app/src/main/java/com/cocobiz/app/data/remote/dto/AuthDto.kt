@@ -17,7 +17,8 @@ data class LoginRequest(
 )
 
 data class SendOtpRequest(
-    @SerializedName("identifier") val identifier: String
+    @SerializedName("identifier") val identifier: String,
+    @SerializedName("channel") val channel: String = "EMAIL"  // "EMAIL" or "SMS"
 )
 
 data class VerifyOtpRequest(
@@ -45,7 +46,8 @@ data class UserInfo(
 data class OtpResponse(
     @SerializedName("message") val message: String,
     @SerializedName("masked") val masked: String = "",
-    @SerializedName("userEmail") val userEmail: String = ""
+    @SerializedName("userEmail") val userEmail: String = "",
+    @SerializedName("userPhone") val userPhone: String = ""
 )
 
 data class UpdateReminderRequest(
