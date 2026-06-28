@@ -68,8 +68,8 @@ class AuthPreferences @Inject constructor(@ApplicationContext context: Context) 
         this.phone = user.phone
         this.businessName = user.businessName
         this.ownerName = user.ownerName
-        this.reminderChannel = user.reminderChannel
-        this.reminderFrequency = user.reminderFrequency
+        this.reminderChannel = user.reminderChannel ?: "EMAIL"
+        this.reminderFrequency = user.reminderFrequency ?: "DAILY"
     }
 
     fun clear() = prefs.edit().clear().apply()

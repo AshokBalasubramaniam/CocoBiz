@@ -2,7 +2,6 @@ package com.cocobiz.app.presentation.auth
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.cocobiz.app.data.local.AuthPreferences
 import com.cocobiz.app.data.remote.api.AuthApiService
 import com.cocobiz.app.data.remote.dto.RegisterRequest
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -22,13 +21,13 @@ data class RegisterUiState(
     val businessName: String = "",
     val ownerName: String = "",
     val isLoading: Boolean = false,
-    val error: String? = null
+    val error: String? = null,
+    val isSuccess: Boolean = false
 )
 
 @HiltViewModel
 class RegisterViewModel @Inject constructor(
-    private val authApi: AuthApiService,
-    private val authPrefs: AuthPreferences
+    private val authApi: AuthApiService
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(RegisterUiState())
@@ -42,7 +41,7 @@ class RegisterViewModel @Inject constructor(
     fun onBusinessNameChange(v: String) = _state.update { it.copy(businessName = v, error = null) }
     fun onOwnerNameChange(v: String) = _state.update { it.copy(ownerName = v, error = null) }
 
-    fun register(onSuccess: () -> Unit) {
+    fun register() {
         val s = _state.value
         when {
             s.username.isBlank() -> { _state.update { it.copy(error = "Username is required") }; return }
@@ -55,7 +54,7 @@ class RegisterViewModel @Inject constructor(
         viewModelScope.launch {
             _state.update { it.copy(isLoading = true, error = null) }
             try {
-                val resp = authApi.register(
+                authApi.register(
                     RegisterRequest(
                         username = s.username.trim().lowercase(),
                         password = s.password,
@@ -65,8 +64,7 @@ class RegisterViewModel @Inject constructor(
                         ownerName = s.ownerName.trim()
                     )
                 )
-                authPrefs.saveAuth(resp.token, resp.user)
-                onSuccess()
+                _state.update { it.copy(isLoading = false, isSuccess = true) }
             } catch (e: Exception) {
                 _state.update { it.copy(isLoading = false, error = e.toUserMessage()) }
             }

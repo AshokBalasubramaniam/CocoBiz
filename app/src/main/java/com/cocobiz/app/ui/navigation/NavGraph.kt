@@ -131,8 +131,8 @@ fun CocoBizNavGraph(isLoggedIn: Boolean = false) {
             composable(Screen.Register.route) {
                 RegisterScreen(
                     onRegisterSuccess = {
-                        navController.navigate(Screen.Dashboard.route) {
-                            popUpTo(0) { inclusive = true }
+                        navController.navigate(Screen.Login.route) {
+                            popUpTo(Screen.Register.route) { inclusive = true }
                         }
                     },
                     onNavigateToLogin = { navController.popBackStack() }

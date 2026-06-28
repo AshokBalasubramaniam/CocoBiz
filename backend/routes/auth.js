@@ -49,7 +49,7 @@ router.post('/register', async (req, res) => {
     const token = generateToken(user._id.toString(), user.username);
     res.status(201).json({
       token,
-      user: { id: user._id, username: user.username, email: user.email, phone: user.phone, businessName: user.businessName, ownerName: user.ownerName }
+      user: { id: user._id, username: user.username, email: user.email, phone: user.phone, businessName: user.businessName, ownerName: user.ownerName, reminderChannel: user.reminderChannel, reminderFrequency: user.reminderFrequency }
     });
   } catch (err) {
     res.status(500).json({ error: err.message });

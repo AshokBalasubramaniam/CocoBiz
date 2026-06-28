@@ -38,8 +38,8 @@ data class UserInfo(
     @SerializedName("phone") val phone: String = "",
     @SerializedName("businessName") val businessName: String = "",
     @SerializedName("ownerName") val ownerName: String = "",
-    @SerializedName("reminderChannel") val reminderChannel: String = "EMAIL",
-    @SerializedName("reminderFrequency") val reminderFrequency: String = "DAILY"
+    @SerializedName("reminderChannel") val reminderChannel: String? = "EMAIL",
+    @SerializedName("reminderFrequency") val reminderFrequency: String? = "DAILY"
 )
 
 data class OtpResponse(

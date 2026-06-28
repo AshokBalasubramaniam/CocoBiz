@@ -30,6 +30,43 @@ fun RegisterScreen(
     var passwordVisible by remember { mutableStateOf(false) }
     var confirmVisible by remember { mutableStateOf(false) }
 
+    // Show success dialog when registration completes
+    if (state.isSuccess) {
+        AlertDialog(
+            onDismissRequest = { onRegisterSuccess() },
+            icon = {
+                Icon(
+                    Icons.Default.CheckCircle,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(48.dp)
+                )
+            },
+            title = {
+                Text(
+                    "Account Created!",
+                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.titleLarge
+                )
+            },
+            text = {
+                Text(
+                    "Your account has been created successfully. Please sign in with your new credentials.",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = { onRegisterSuccess() },
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text("Sign In", fontWeight = FontWeight.SemiBold)
+                }
+            },
+            shape = RoundedCornerShape(20.dp)
+        )
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -166,7 +203,7 @@ fun RegisterScreen(
             }
 
             Button(
-                onClick = { viewModel.register(onRegisterSuccess) },
+                onClick = { viewModel.register() },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(52.dp),
