@@ -4,6 +4,7 @@ import com.cocobiz.app.data.remote.api.CocoBizApiService
 import com.cocobiz.app.data.remote.dto.UserProfileDto
 import com.cocobiz.app.domain.model.UserProfile
 import com.cocobiz.app.domain.repository.UserProfileRepository
+import com.cocobiz.app.util.NetworkConnectivityObserver
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -16,14 +17,19 @@ import javax.inject.Singleton
 
 @Singleton
 class UserProfileRepositoryImpl @Inject constructor(
-    private val api: CocoBizApiService
+    private val api: CocoBizApiService,
+    private val network: NetworkConnectivityObserver
 ) : UserProfileRepository {
 
     private val _profile = MutableStateFlow<UserProfile?>(null)
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     init {
-        scope.launch { refresh() }
+        scope.launch {
+            network.isConnected.collect { connected ->
+                if (connected) refresh()
+            }
+        }
     }
 
     private suspend fun refresh() {

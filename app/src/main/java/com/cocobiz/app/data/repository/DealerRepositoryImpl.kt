@@ -4,6 +4,7 @@ import com.cocobiz.app.data.remote.api.CocoBizApiService
 import com.cocobiz.app.data.remote.dto.DealerDto
 import com.cocobiz.app.domain.model.Dealer
 import com.cocobiz.app.domain.repository.DealerRepository
+import com.cocobiz.app.util.NetworkConnectivityObserver
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -17,14 +18,19 @@ import javax.inject.Singleton
 
 @Singleton
 class DealerRepositoryImpl @Inject constructor(
-    private val api: CocoBizApiService
+    private val api: CocoBizApiService,
+    private val network: NetworkConnectivityObserver
 ) : DealerRepository {
 
     private val _dealers = MutableStateFlow<List<Dealer>>(emptyList())
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     init {
-        scope.launch { refresh() }
+        scope.launch {
+            network.isConnected.collect { connected ->
+                if (connected) refresh()
+            }
+        }
     }
 
     private suspend fun refresh() {

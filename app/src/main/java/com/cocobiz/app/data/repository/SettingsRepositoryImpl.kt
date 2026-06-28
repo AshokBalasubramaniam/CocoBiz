@@ -5,6 +5,7 @@ import com.cocobiz.app.data.remote.dto.SettingsDto
 import com.cocobiz.app.domain.model.AppSettings
 import com.cocobiz.app.domain.model.DarkModeOption
 import com.cocobiz.app.domain.repository.SettingsRepository
+import com.cocobiz.app.util.NetworkConnectivityObserver
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -17,14 +18,19 @@ import javax.inject.Singleton
 
 @Singleton
 class SettingsRepositoryImpl @Inject constructor(
-    private val api: CocoBizApiService
+    private val api: CocoBizApiService,
+    private val network: NetworkConnectivityObserver
 ) : SettingsRepository {
 
     private val _settings = MutableStateFlow(AppSettings())
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     init {
-        scope.launch { refresh() }
+        scope.launch {
+            network.isConnected.collect { connected ->
+                if (connected) refresh()
+            }
+        }
     }
 
     private suspend fun refresh() {

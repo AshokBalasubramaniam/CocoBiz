@@ -8,6 +8,7 @@ import com.cocobiz.app.domain.model.SalesEntry
 import com.cocobiz.app.domain.repository.SalesRepository
 import com.cocobiz.app.util.DateUtils.toEpochMilli
 import com.cocobiz.app.util.DateUtils.toLocalDate
+import com.cocobiz.app.util.NetworkConnectivityObserver
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -22,14 +23,19 @@ import javax.inject.Singleton
 
 @Singleton
 class SalesRepositoryImpl @Inject constructor(
-    private val api: CocoBizApiService
+    private val api: CocoBizApiService,
+    private val network: NetworkConnectivityObserver
 ) : SalesRepository {
 
     private val _allSales = MutableStateFlow<List<SalesEntry>>(emptyList())
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     init {
-        scope.launch { refresh() }
+        scope.launch {
+            network.isConnected.collect { connected ->
+                if (connected) refresh()
+            }
+        }
     }
 
     private suspend fun refresh() {
@@ -80,10 +86,7 @@ class SalesRepositoryImpl @Inject constructor(
 
     override fun getSalesByDateRange(startDate: Long, endDate: Long): Flow<List<SalesEntry>> =
         _allSales.map { list ->
-            list.filter { sale ->
-                val ms = sale.salesDate.toEpochMilli()
-                ms in startDate..endDate
-            }
+            list.filter { sale -> sale.salesDate.toEpochMilli() in startDate..endDate }
         }
 
     override fun getTotalRevenueByDealer(dealerId: Long): Flow<Double> =
