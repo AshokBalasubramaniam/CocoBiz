@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.CocoBiz" parent="Theme.AppCompat.DayNight.NoActionBar" />
+
+    <style name="Theme.CocoBiz.SplashScreen" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/coco_green_primary</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_app_logo</item>
+        <item name="postSplashScreenTheme">@style/Theme.CocoBiz</item>
+    </style>
+</resources>

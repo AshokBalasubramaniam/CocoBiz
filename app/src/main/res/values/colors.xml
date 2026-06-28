@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="coco_green_primary">#1B6E00</color>
+    <color name="coco_brown_secondary">#5D3D00</color>
+    <color name="coco_gold_accent">#694300</color>
+    <color name="white">#FFFFFF</color>
+    <color name="black">#000000</color>
+    <color name="status_green">#2E7D32</color>
+    <color name="status_yellow">#F9A825</color>
+    <color name="status_red">#C62828</color>
+    <color name="status_gray">#757575</color>
+</resources>
