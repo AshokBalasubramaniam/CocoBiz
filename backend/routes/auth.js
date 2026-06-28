@@ -83,23 +83,40 @@ router.post('/login', async (req, res) => {
 // POST /api/auth/send-otp
 router.post('/send-otp', async (req, res) => {
   try {
-    const { identifier } = req.body; // email or phone
-    if (!identifier) return res.status(400).json({ error: 'Email or phone required' });
+    const { identifier } = req.body;
+    if (!identifier) return res.status(400).json({ error: 'Username, email or phone required' });
 
-    const user = await User.findOne({ $or: [{ email: identifier }, { phone: identifier }] });
-    if (!user) return res.status(404).json({ error: 'No account found with this email/phone' });
+    const cleaned = identifier.trim().toLowerCase();
+    const user = await User.findOne({
+      $or: [{ email: cleaned }, { phone: cleaned }, { username: cleaned }]
+    });
+    if (!user) return res.status(404).json({ error: 'No account found with this username, email or phone' });
+
+    if (!user.email) return res.status(400).json({ error: 'No email address registered on this account. Cannot send OTP.' });
 
     const otp = generateOtp();
-    await Otp.deleteMany({ identifier });
-    await Otp.create({ identifier, otp, expiresAt: new Date(Date.now() + 10 * 60 * 1000) });
+    // Always store OTP keyed to the user's registered email
+    await Otp.deleteMany({ identifier: user.email });
+    await Otp.create({ identifier: user.email, otp, expiresAt: new Date(Date.now() + 10 * 60 * 1000) });
 
-    if (validateEmail(identifier)) {
-      await sendOtpEmail(identifier, otp);
-      res.json({ message: 'OTP sent to email', masked: identifier.replace(/(.{2}).+(@.+)/, '$1***$2') });
+    const masked = user.email.replace(/(.{2}).+(@.+)/, '$1***$2');
+    const emailReady = process.env.EMAIL_USER && process.env.EMAIL_USER !== 'your_email@gmail.com' && process.env.EMAIL_PASS && process.env.EMAIL_PASS !== 'your_app_password';
+
+    if (emailReady) {
+      try {
+        await sendOtpEmail(user.email, otp);
+        console.log(`OTP sent to ${user.email}`);
+      } catch (mailErr) {
+        console.error('Email send failed:', mailErr.message);
+        // Still continue — OTP is saved; user can check logs if needed
+        console.log(`[FALLBACK] OTP for ${user.email}: ${otp}`);
+      }
     } else {
-      console.log(`OTP for ${identifier}: ${otp}`); // Log for SMS integration
-      res.json({ message: 'OTP sent', masked: identifier.replace(/(\d{2})\d+(\d{2})/, '$1****$2') });
+      // Email not configured — log OTP so it's visible in Render.com logs
+      console.log(`[NO-EMAIL-CONFIG] OTP for ${user.email}: ${otp}`);
     }
+
+    res.json({ message: 'OTP generated', masked, userEmail: user.email });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -114,16 +131,20 @@ router.post('/verify-otp', async (req, res) => {
     if (newPassword.length < 6)
       return res.status(400).json({ error: 'Password must be at least 6 characters' });
 
-    const record = await Otp.findOne({ identifier, otp });
+    // Resolve identifier (username/email/phone) → user → canonical email for OTP lookup
+    const cleaned = identifier.trim().toLowerCase();
+    const user = await User.findOne({
+      $or: [{ email: cleaned }, { phone: cleaned }, { username: cleaned }]
+    });
+    if (!user) return res.status(404).json({ error: 'No account found' });
+
+    const record = await Otp.findOne({ identifier: user.email, otp });
     if (!record) return res.status(400).json({ error: 'Invalid or expired OTP' });
     if (record.expiresAt < new Date()) return res.status(400).json({ error: 'OTP expired' });
 
-    const user = await User.findOne({ $or: [{ email: identifier }, { phone: identifier }] });
-    if (!user) return res.status(404).json({ error: 'User not found' });
-
     const passwordHash = await bcrypt.hash(newPassword, 12);
     await User.findByIdAndUpdate(user._id, { passwordHash });
-    await Otp.deleteMany({ identifier });
+    await Otp.deleteMany({ identifier: user.email });
 
     const token = generateToken(user._id.toString(), user.username);
     res.json({ message: 'Password reset successful', token });

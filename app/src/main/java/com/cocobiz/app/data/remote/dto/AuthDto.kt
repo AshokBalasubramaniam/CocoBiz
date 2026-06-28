@@ -44,7 +44,8 @@ data class UserInfo(
 
 data class OtpResponse(
     @SerializedName("message") val message: String,
-    @SerializedName("masked") val masked: String = ""
+    @SerializedName("masked") val masked: String = "",
+    @SerializedName("userEmail") val userEmail: String = ""
 )
 
 data class UpdateReminderRequest(
