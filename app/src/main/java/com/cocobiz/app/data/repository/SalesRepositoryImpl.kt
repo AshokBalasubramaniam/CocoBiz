@@ -32,9 +32,7 @@ class SalesRepositoryImpl @Inject constructor(
 
     init {
         scope.launch {
-            network.isConnected.collect { connected ->
-                if (connected) refresh()
-            }
+            network.onConnected.collect { refresh() }
         }
     }
 
