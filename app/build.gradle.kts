@@ -17,7 +17,8 @@ android {
         versionCode = 1
         versionName = "1.0.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        buildConfigField("String", "SERVER_URL", "\"http://10.0.2.2:4000\"")
+        buildConfigField("String", "SERVER_URL", "\"https://cocobiz.onrender.com\"")
+
     }
 
     buildTypes {
