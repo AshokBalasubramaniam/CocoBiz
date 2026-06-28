@@ -1,7 +1,8 @@
 const mongoose = require('mongoose');
 
 const salesEntrySchema = new mongoose.Schema({
-  localId: { type: Number, required: true, unique: true },
+  localId: { type: Number, required: true },
+  userId: { type: String, required: true, index: true },
   dealerId: { type: Number, required: true },
   dealerName: { type: String, default: '' },
   dealerPlace: { type: String, default: '' },
@@ -18,4 +19,5 @@ const salesEntrySchema = new mongoose.Schema({
   updatedAt: { type: Number, default: Date.now }
 });
 
+salesEntrySchema.index({ localId: 1, userId: 1 }, { unique: true });
 module.exports = mongoose.model('SalesEntry', salesEntrySchema);

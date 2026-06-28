@@ -23,6 +23,9 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.cocobiz.app.presentation.auth.ForgotPasswordScreen
+import com.cocobiz.app.presentation.auth.LoginScreen
+import com.cocobiz.app.presentation.auth.RegisterScreen
 import com.cocobiz.app.presentation.dashboard.DashboardScreen
 import com.cocobiz.app.presentation.dealers.AddEditDealerScreen
 import com.cocobiz.app.presentation.dealers.DealerProfileScreen
@@ -35,7 +38,7 @@ import com.cocobiz.app.presentation.settings.BackupRestoreScreen
 import com.cocobiz.app.presentation.settings.SettingsScreen
 
 @Composable
-fun CocoBizNavGraph() {
+fun CocoBizNavGraph(isLoggedIn: Boolean = false) {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = navBackStackEntry?.destination
@@ -47,6 +50,8 @@ fun CocoBizNavGraph() {
         Screen.Settings.route
     )
     val showBottomBar = currentDestination?.route in bottomNavRoutes
+
+    val startDestination = if (isLoggedIn) Screen.Dashboard.route else Screen.Login.route
 
     Scaffold(
         bottomBar = {
@@ -90,7 +95,7 @@ fun CocoBizNavGraph() {
     ) { innerPadding ->
         NavHost(
             navController = navController,
-            startDestination = Screen.Dashboard.route,
+            startDestination = startDestination,
             modifier = Modifier.padding(innerPadding),
             enterTransition = {
                 fadeIn(animationSpec = tween(300)) + slideIntoContainer(
@@ -111,6 +116,40 @@ fun CocoBizNavGraph() {
                 )
             }
         ) {
+            // ── Auth screens (no bottom nav) ──────────────────────────
+            composable(Screen.Login.route) {
+                LoginScreen(
+                    onLoginSuccess = {
+                        navController.navigate(Screen.Dashboard.route) {
+                            popUpTo(0) { inclusive = true }
+                        }
+                    },
+                    onNavigateToRegister = { navController.navigate(Screen.Register.route) },
+                    onNavigateToForgotPassword = { navController.navigate(Screen.ForgotPassword.route) }
+                )
+            }
+            composable(Screen.Register.route) {
+                RegisterScreen(
+                    onRegisterSuccess = {
+                        navController.navigate(Screen.Dashboard.route) {
+                            popUpTo(0) { inclusive = true }
+                        }
+                    },
+                    onNavigateToLogin = { navController.popBackStack() }
+                )
+            }
+            composable(Screen.ForgotPassword.route) {
+                ForgotPasswordScreen(
+                    onResetSuccess = {
+                        navController.navigate(Screen.Login.route) {
+                            popUpTo(0) { inclusive = true }
+                        }
+                    },
+                    onNavigateBack = { navController.popBackStack() }
+                )
+            }
+
+            // ── Main app screens ──────────────────────────────────────
             composable(Screen.Dashboard.route) {
                 DashboardScreen(
                     onAddSale = { navController.navigate(Screen.AddSale.route) },
@@ -130,7 +169,12 @@ fun CocoBizNavGraph() {
             composable(Screen.Settings.route) {
                 SettingsScreen(
                     onNavigateToProfile = { navController.navigate(Screen.BusinessProfile.route) },
-                    onNavigateToBackup = { navController.navigate(Screen.BackupRestore.route) }
+                    onNavigateToBackup = { navController.navigate(Screen.BackupRestore.route) },
+                    onLogout = {
+                        navController.navigate(Screen.Login.route) {
+                            popUpTo(0) { inclusive = true }
+                        }
+                    }
                 )
             }
             composable(Screen.AddSale.route) {
@@ -180,7 +224,7 @@ fun CocoBizNavGraph() {
                 BackupRestoreScreen(
                     onNavigateBack = { navController.popBackStack() },
                     onResetComplete = {
-                        navController.navigate(Screen.Dashboard.route) {
+                        navController.navigate(Screen.Login.route) {
                             popUpTo(0) { inclusive = true }
                         }
                     }

@@ -1,7 +1,8 @@
 const mongoose = require('mongoose');
 
 const appSettingsSchema = new mongoose.Schema({
-  localId: { type: Number, default: 1, unique: true },
+  localId: { type: Number, default: 1 },
+  userId: { type: String, unique: true, index: true },
   reminderDays: { type: Number, default: 5 },
   notificationEnabled: { type: Boolean, default: true },
   emailEnabled: { type: Boolean, default: false },

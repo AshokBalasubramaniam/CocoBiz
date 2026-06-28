@@ -32,14 +32,17 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.cocobiz.app.data.local.AuthPreferences
 import com.cocobiz.app.domain.model.DarkModeOption
 import com.cocobiz.app.ui.navigation.CocoBizNavGraph
 import com.cocobiz.app.ui.theme.CocoBizTheme
 import dagger.hilt.android.AndroidEntryPoint
+import javax.inject.Inject
 
 @AndroidEntryPoint
 class MainActivity : AppCompatActivity() {
 
+    @Inject lateinit var authPreferences: AuthPreferences
     private val viewModel: MainViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -62,7 +65,7 @@ class MainActivity : AppCompatActivity() {
                     color = MaterialTheme.colorScheme.background
                 ) {
                     Box(modifier = Modifier.fillMaxSize()) {
-                        CocoBizNavGraph()
+                        CocoBizNavGraph(isLoggedIn = authPreferences.isLoggedIn)
 
                         AnimatedVisibility(
                             visible = !isConnected,

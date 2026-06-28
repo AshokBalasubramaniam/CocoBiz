@@ -6,12 +6,10 @@ import android.net.Uri
 import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
-import com.cocobiz.app.data.local.dao.DealerDao
-import com.cocobiz.app.data.local.dao.SalesEntryDao
-import com.cocobiz.app.data.local.dao.UserProfileDao
-import com.cocobiz.app.data.local.entity.DealerEntity
-import com.cocobiz.app.data.local.entity.SalesEntryEntity
-import com.cocobiz.app.data.local.entity.UserProfileEntity
+import com.cocobiz.app.data.remote.api.CocoBizApiService
+import com.cocobiz.app.data.remote.dto.DealerDto
+import com.cocobiz.app.data.remote.dto.SalesEntryDto
+import com.cocobiz.app.data.remote.dto.UserProfileDto
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -38,19 +36,15 @@ sealed class BackupResult {
 @Singleton
 class BackupManager @Inject constructor(
     @ApplicationContext private val context: Context,
-    private val salesDao: SalesEntryDao,
-    private val dealerDao: DealerDao,
-    private val userProfileDao: UserProfileDao
+    private val api: CocoBizApiService
 ) {
     companion object {
         const val BACKUP_FOLDER = "CocoBiz"
         private const val BACKUP_EXT = ".cocobak"
-        private const val FORMAT_VERSION = 1
+        private const val FORMAT_VERSION = 2
         private const val PASSPHRASE = "CocoBiz@2024#Secure!Backup"
         private const val IV_LEN = 12
-        // "COCOBAK1" magic header — 8 bytes — used to validate the file before decryption
         private val MAGIC = byteArrayOf(0x43, 0x4F, 0x43, 0x4F, 0x42, 0x41, 0x4B, 0x31)
-        // AES-256 key: SHA-256 of the passphrase (no PBKDF2 — avoids OEM inconsistencies)
         private val AES_KEY: SecretKeySpec by lazy {
             val bytes = MessageDigest.getInstance("SHA-256")
                 .digest(PASSPHRASE.toByteArray(Charsets.UTF_8))
@@ -58,13 +52,11 @@ class BackupManager @Inject constructor(
         }
     }
 
-    // ── Public API ────────────────────────────────────────────────────
-
     suspend fun backup(): BackupResult = withContext(Dispatchers.IO) {
         try {
-            val dealers = dealerDao.getAllSync()
-            val sales = salesDao.getAllSync()
-            val profile = userProfileDao.getProfileSync()
+            val dealers = api.getAllDealers()
+            val sales = api.getAllSales()
+            val profile = runCatching { api.getProfile() }.getOrNull()
 
             val plaintext = buildJson(dealers, sales, profile).toByteArray(Charsets.UTF_8)
             val encrypted = encrypt(plaintext)
@@ -73,7 +65,7 @@ class BackupManager @Inject constructor(
             val fileName = "CocoBiz_Backup_$ts$BACKUP_EXT"
             saveToDownloads(fileName, encrypted)
 
-            BackupResult.Success("Saved as $fileName\nin Downloads/$BACKUP_FOLDER")
+            BackupResult.Success("Saved as $fileName\nin Downloads/$BACKUP_FOLDER\n(${dealers.size} dealers, ${sales.size} sales)")
         } catch (e: Exception) {
             BackupResult.Error(e.message ?: "Backup failed")
         }
@@ -92,12 +84,15 @@ class BackupManager @Inject constructor(
                 return@withContext BackupResult.Error("This backup was created with a newer app version")
             }
 
-            // Restore dealers first (sales have FK constraint to dealers)
+            var dealerCount = 0
+            var salesCount = 0
+
             root.optJSONArray("dealers")?.let { arr ->
-                val list = (0 until arr.length()).map { i ->
+                dealerCount = arr.length()
+                val dtos = (0 until arr.length()).map { i ->
                     val o = arr.getJSONObject(i)
-                    DealerEntity(
-                        id = o.getLong("id"),
+                    DealerDto(
+                        localId = o.getLong("id"),
                         dealerName = o.getString("dealerName"),
                         place = o.getString("place"),
                         phone = o.getString("phone"),
@@ -110,15 +105,15 @@ class BackupManager @Inject constructor(
                         updatedAt = o.getLong("updatedAt")
                     )
                 }
-                dealerDao.deleteAll()
-                dealerDao.insertAll(list)
+                dtos.forEach { runCatching { api.upsertDealer(it) } }
             }
 
             root.optJSONArray("sales")?.let { arr ->
-                val list = (0 until arr.length()).map { i ->
+                salesCount = arr.length()
+                val dtos = (0 until arr.length()).map { i ->
                     val o = arr.getJSONObject(i)
-                    SalesEntryEntity(
-                        id = o.getLong("id"),
+                    SalesEntryDto(
+                        localId = o.getLong("id"),
                         dealerId = o.getLong("dealerId"),
                         dealerName = o.getString("dealerName"),
                         dealerPlace = o.getString("dealerPlace"),
@@ -135,33 +130,32 @@ class BackupManager @Inject constructor(
                         updatedAt = o.getLong("updatedAt")
                     )
                 }
-                salesDao.deleteAll()
-                salesDao.insertAll(list)
+                if (dtos.isNotEmpty()) {
+                    runCatching { api.bulkUpsertSales(mapOf("sales" to dtos)) }
+                }
             }
 
             root.optJSONObject("profile")?.let { o ->
-                userProfileDao.deleteAll()
-                userProfileDao.insertOrUpdate(
-                    UserProfileEntity(
-                        id = o.getLong("id"),
-                        businessName = o.optString("businessName", ""),
-                        ownerName = o.optString("ownerName", ""),
-                        phone = o.optString("phone", ""),
-                        alternatePhone = o.optString("alternatePhone", ""),
-                        email = o.optString("email", ""),
-                        address = o.optString("address", ""),
-                        city = o.optString("city", ""),
-                        state = o.optString("state", ""),
-                        pincode = o.optString("pincode", ""),
-                        gstNumber = o.optString("gstNumber", ""),
-                        logoPath = o.optString("logoPath", ""),
-                        createdAt = o.getLong("createdAt"),
-                        updatedAt = o.getLong("updatedAt")
-                    )
+                val profileDto = UserProfileDto(
+                    localId = o.getLong("id"),
+                    businessName = o.optString("businessName", ""),
+                    ownerName = o.optString("ownerName", ""),
+                    phone = o.optString("phone", ""),
+                    alternatePhone = o.optString("alternatePhone", ""),
+                    email = o.optString("email", ""),
+                    address = o.optString("address", ""),
+                    city = o.optString("city", ""),
+                    state = o.optString("state", ""),
+                    pincode = o.optString("pincode", ""),
+                    gstNumber = o.optString("gstNumber", ""),
+                    logoPath = o.optString("logoPath", ""),
+                    createdAt = o.getLong("createdAt"),
+                    updatedAt = o.getLong("updatedAt")
                 )
+                runCatching { api.saveProfile(profileDto) }
             }
 
-            BackupResult.Success("Restore complete! All data has been restored.")
+            BackupResult.Success("Restore complete!\n$dealerCount dealers, $salesCount sales synced to cloud.")
         } catch (e: Exception) {
             BackupResult.Error("Restore failed: ${e.message}")
         }
@@ -169,21 +163,20 @@ class BackupManager @Inject constructor(
 
     suspend fun resetAllData(): BackupResult = withContext(Dispatchers.IO) {
         try {
-            salesDao.deleteAll()
-            dealerDao.deleteAll()
-            userProfileDao.deleteAll()
+            val sales = runCatching { api.getAllSales() }.getOrElse { emptyList() }
+            sales.forEach { runCatching { api.deleteSale(it.localId) } }
+            val dealers = runCatching { api.getAllDealers() }.getOrElse { emptyList() }
+            dealers.forEach { runCatching { api.deleteDealer(it.localId) } }
             BackupResult.Success("All data deleted successfully")
         } catch (e: Exception) {
             BackupResult.Error(e.message ?: "Reset failed")
         }
     }
 
-    // ── JSON serialisation ────────────────────────────────────────────
-
     private fun buildJson(
-        dealers: List<DealerEntity>,
-        sales: List<SalesEntryEntity>,
-        profile: UserProfileEntity?
+        dealers: List<DealerDto>,
+        sales: List<SalesEntryDto>,
+        profile: UserProfileDto?
     ): String {
         val root = JSONObject()
         root.put("version", FORMAT_VERSION)
@@ -193,7 +186,7 @@ class BackupManager @Inject constructor(
         val dealersArr = JSONArray()
         dealers.forEach { d ->
             dealersArr.put(JSONObject().apply {
-                put("id", d.id)
+                put("id", d.localId)
                 put("dealerName", d.dealerName)
                 put("place", d.place)
                 put("phone", d.phone)
@@ -211,7 +204,7 @@ class BackupManager @Inject constructor(
         val salesArr = JSONArray()
         sales.forEach { s ->
             salesArr.put(JSONObject().apply {
-                put("id", s.id)
+                put("id", s.localId)
                 put("dealerId", s.dealerId)
                 put("dealerName", s.dealerName)
                 put("dealerPlace", s.dealerPlace)
@@ -232,7 +225,7 @@ class BackupManager @Inject constructor(
 
         if (profile != null) {
             root.put("profile", JSONObject().apply {
-                put("id", profile.id)
+                put("id", profile.localId)
                 put("businessName", profile.businessName)
                 put("ownerName", profile.ownerName)
                 put("phone", profile.phone)
@@ -251,9 +244,6 @@ class BackupManager @Inject constructor(
 
         return root.toString()
     }
-
-    // ── AES-256-GCM encryption ────────────────────────────────────────
-    // File format: MAGIC(8) + IV(12) + ciphertext+GCM-tag
 
     private fun encrypt(data: ByteArray): ByteArray {
         val iv = ByteArray(IV_LEN).also { SecureRandom().nextBytes(it) }
@@ -276,8 +266,6 @@ class BackupManager @Inject constructor(
         cipher.init(Cipher.DECRYPT_MODE, AES_KEY, GCMParameterSpec(128, iv))
         return cipher.doFinal(ciphertext)
     }
-
-    // ── File saving ───────────────────────────────────────────────────
 
     @Suppress("DEPRECATION")
     private fun saveToDownloads(fileName: String, data: ByteArray) {

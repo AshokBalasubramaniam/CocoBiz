@@ -65,6 +65,7 @@ import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.cocobiz.app.ui.components.ConfirmationDialog
@@ -103,8 +104,6 @@ fun DashboardScreen(
         if (isSearchActive) focusRequester.requestFocus()
     }
 
-    // ── Entrance animations ───────────────────────────────────────────
-    // Stat cards: scale 0.92→1.0 spring + fade, immediate on load
     var statsVisible by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { statsVisible = true }
     val statsAlpha by animateFloatAsState(
@@ -148,14 +147,18 @@ fun DashboardScreen(
         topBar = {
             TopAppBar(
                 navigationIcon = {
-                    if (isSearchActive) {
+                    if (isSearchActive || uiState.viewMode != ViewMode.NORMAL) {
                         IconButton(onClick = {
-                            isSearchActive = false
-                            viewModel.updateSearchQuery("")
+                            if (isSearchActive) {
+                                isSearchActive = false
+                                viewModel.updateSearchQuery("")
+                            } else {
+                                viewModel.setViewMode(ViewMode.NORMAL)
+                            }
                         }) {
                             Icon(
                                 Icons.Default.ArrowBack,
-                                contentDescription = "Close search",
+                                contentDescription = "Back",
                                 tint = MaterialTheme.colorScheme.onSurface
                             )
                         }
@@ -193,18 +196,46 @@ fun DashboardScreen(
                             )
                         }
                     } else {
-                        Column {
-                            Text(
-                                text = "CocoBiz",
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.ExtraBold,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            Text(
-                                text = "Coconut Sales Manager",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                        when (uiState.viewMode) {
+                            ViewMode.NEXT_HARVESTING -> Column {
+                                Text(
+                                    "Next Harvesting",
+                                    style = MaterialTheme.typography.titleLarge,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    "Sorted by earliest date",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            ViewMode.YEAR_REPORT -> Column {
+                                Text(
+                                    "Sales — Last 12 Months",
+                                    style = MaterialTheme.typography.titleLarge,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    "${uiState.yearSales.size} sales · ₹${uiState.yearSales.sumOf { it.totalAmount }.toLong()}",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            ViewMode.NORMAL -> Column {
+                                Text(
+                                    "CocoBiz",
+                                    style = MaterialTheme.typography.titleLarge,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    "Coconut Sales Manager",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
                         }
                     }
                 },
@@ -219,7 +250,7 @@ fun DashboardScreen(
                                 )
                             }
                         }
-                    } else {
+                    } else if (uiState.viewMode == ViewMode.NORMAL) {
                         Box(
                             modifier = Modifier
                                 .size(38.dp)
@@ -248,12 +279,14 @@ fun DashboardScreen(
             )
         },
         floatingActionButton = {
-            FloatingActionButton(
-                onClick = onAddSale,
-                containerColor = MaterialTheme.colorScheme.primary,
-                shape = CircleShape
-            ) {
-                Icon(Icons.Default.Add, contentDescription = "Add Sale", tint = Color.White)
+            if (uiState.viewMode == ViewMode.NORMAL) {
+                FloatingActionButton(
+                    onClick = onAddSale,
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    shape = CircleShape
+                ) {
+                    Icon(Icons.Default.Add, contentDescription = "Add Sale", tint = Color.White)
+                }
             }
         }
     ) { innerPadding ->
@@ -263,7 +296,7 @@ fun DashboardScreen(
                 .padding(innerPadding),
             contentPadding = PaddingValues(bottom = 80.dp)
         ) {
-            // ── Stat cards: scale spring + fade ───────────────────────
+            // ── Stat cards ────────────────────────────────────────────
             if (!isSearchActive) {
                 item {
                     val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
@@ -308,9 +341,18 @@ fun DashboardScreen(
                             iconBackground = if (isDark) Color(0xFF371655) else StatPurpleLight,
                             iconTint     = if (isDark) Color(0xFFCE93D8) else StatPurple,
                             valueColor   = if (isDark) Color(0xFFCE93D8) else StatPurple,
-                            cardBackground = if (isDark) Color(0xFF221338) else Color(0xFFF5F0FF),
-                            subtitle = "This month",
-                            modifier = Modifier.weight(1f).fillMaxHeight()
+                            cardBackground = if (uiState.viewMode == ViewMode.YEAR_REPORT)
+                                (if (isDark) Color(0xFF4A2080) else Color(0xFFE8D8FF))
+                            else
+                                (if (isDark) Color(0xFF221338) else Color(0xFFF5F0FF)),
+                            subtitle = "Tap for year report",
+                            modifier = Modifier.weight(1f).fillMaxHeight(),
+                            onClick = {
+                                viewModel.setViewMode(
+                                    if (uiState.viewMode == ViewMode.YEAR_REPORT) ViewMode.NORMAL
+                                    else ViewMode.YEAR_REPORT
+                                )
+                            }
                         )
                         GradientStatCard(
                             title = "Next Harvesting",
@@ -319,15 +361,67 @@ fun DashboardScreen(
                             iconBackground = if (isDark) Color(0xFF124038) else StatTealLight,
                             iconTint     = if (isDark) Color(0xFF4DB6AC) else StatTeal,
                             valueColor   = if (isDark) Color(0xFF4DB6AC) else StatTeal,
-                            cardBackground = if (isDark) Color(0xFF0E2826) else Color(0xFFEFF9F9),
+                            cardBackground = if (uiState.viewMode == ViewMode.NEXT_HARVESTING)
+                                (if (isDark) Color(0xFF1A5050) else Color(0xFFCCF0EE))
+                            else
+                                (if (isDark) Color(0xFF0E2826) else Color(0xFFEFF9F9)),
                             subtitle = "${uiState.stats.upcomingReminders} due",
-                            modifier = Modifier.weight(1f).fillMaxHeight()
+                            modifier = Modifier.weight(1f).fillMaxHeight(),
+                            onClick = {
+                                viewModel.setViewMode(
+                                    if (uiState.viewMode == ViewMode.NEXT_HARVESTING) ViewMode.NORMAL
+                                    else ViewMode.NEXT_HARVESTING
+                                )
+                            }
                         )
                     }
                 }
             }
 
-            // ── Active Sales header: fade + rise (80ms delay) ─────────
+            // ── YEAR_REPORT mode ──────────────────────────────────────
+            if (uiState.viewMode == ViewMode.YEAR_REPORT) {
+                item {
+                    SectionHeader(
+                        title = "All Sales — Last 12 Months",
+                        count = uiState.yearSales.size
+                    )
+                }
+                if (uiState.yearSales.isEmpty()) {
+                    item {
+                        EmptyStateView(
+                            icon = Icons.Default.AttachMoney,
+                            title = "No sales in the last 12 months",
+                            subtitle = "Add sales to see your annual report",
+                            modifier = Modifier.fillMaxWidth().padding(24.dp)
+                        )
+                    }
+                } else {
+                    itemsIndexed(items = uiState.yearSales, key = { _, sale -> "yr_${sale.id}" }) { index, sale ->
+                        var visible by remember { mutableStateOf(false) }
+                        LaunchedEffect(Unit) { delay((100 + index * 60).toLong()); visible = true }
+                        val progress by animateFloatAsState(
+                            targetValue = if (visible) 1f else 0f,
+                            animationSpec = tween(durationMillis = 280, easing = FastOutSlowInEasing),
+                            label = "yearSale$index"
+                        )
+                        SalesCard(
+                            sale = sale,
+                            onEdit = { onEditSale(sale.id) },
+                            onDelete = { saleToDelete = sale.id },
+                            onComplete = { saleToComplete = sale.id },
+                            modifier = Modifier
+                                .padding(horizontal = 16.dp, vertical = 6.dp)
+                                .graphicsLayer {
+                                    alpha = progress
+                                    translationY = 20.dp.toPx() * (1f - progress)
+                                }
+                        )
+                    }
+                }
+                return@LazyColumn
+            }
+
+            // ── Active Sales ──────────────────────────────────────────
             item {
                 var visible by remember { mutableStateOf(false) }
                 LaunchedEffect(Unit) { delay(80); visible = true }
@@ -340,11 +434,14 @@ fun DashboardScreen(
                     alpha = progress
                     translationY = 10.dp.toPx() * (1f - progress)
                 }) {
-                    SectionHeader(title = "Active Sales", count = uiState.activeSales.size)
+                    SectionHeader(
+                        title = if (uiState.viewMode == ViewMode.NEXT_HARVESTING)
+                            "Next Harvesting — All Active" else "Active Sales",
+                        count = uiState.activeSales.size
+                    )
                 }
             }
 
-            // ── Active sale rows: slide up 20dp + fade, 80ms stagger ──
             if (uiState.activeSales.isEmpty()) {
                 item {
                     if (isSearchActive) {
@@ -402,68 +499,69 @@ fun DashboardScreen(
                 }
             }
 
-            // ── Completed Sales header: fade + rise (320ms delay) ─────
-            item {
-                var visible by remember { mutableStateOf(false) }
-                LaunchedEffect(Unit) { delay(320); visible = true }
-                val progress by animateFloatAsState(
-                    targetValue = if (visible) 1f else 0f,
-                    animationSpec = tween(durationMillis = 320, easing = FastOutSlowInEasing),
-                    label = "completedSectionHeader"
-                )
-                Box(modifier = Modifier.graphicsLayer {
-                    alpha = progress
-                    translationY = 10.dp.toPx() * (1f - progress)
-                }) {
-                    Spacer(Modifier.height(4.dp))
-                    SectionHeader(
-                        title = "Completed Sales",
-                        count = uiState.completedSales.size,
-                        onViewAll = {}
-                    )
-                }
-            }
-
-            // ── Completed sale rows: slide up + fade, 80ms stagger ────
-            if (uiState.completedSales.isEmpty()) {
+            // ── Completed Sales (hidden in NEXT_HARVESTING mode) ──────
+            if (uiState.viewMode != ViewMode.NEXT_HARVESTING) {
                 item {
-                    if (isSearchActive && uiState.searchQuery.isNotEmpty()) {
-                        EmptyStateView(
-                            icon = Icons.Default.Search,
-                            title = "No results",
-                            subtitle = "No completed sales match \"${uiState.searchQuery}\"",
-                            modifier = Modifier.fillMaxWidth().padding(24.dp)
-                        )
-                    } else {
-                        EmptyStateView(
-                            icon = Icons.Default.CheckCircle,
-                            title = "No Completed Sales",
-                            subtitle = "Completed sales will appear here",
-                            modifier = Modifier.fillMaxWidth().padding(24.dp)
-                        )
-                    }
-                }
-            } else {
-                itemsIndexed(items = uiState.completedSales, key = { _, sale -> sale.id }) { index, sale ->
                     var visible by remember { mutableStateOf(false) }
-                    LaunchedEffect(Unit) { delay((400 + index * 80).toLong()); visible = true }
+                    LaunchedEffect(Unit) { delay(320); visible = true }
                     val progress by animateFloatAsState(
                         targetValue = if (visible) 1f else 0f,
                         animationSpec = tween(durationMillis = 320, easing = FastOutSlowInEasing),
-                        label = "completedSale$index"
+                        label = "completedSectionHeader"
                     )
-                    SalesCard(
-                        sale = sale,
-                        onEdit = {},
-                        onDelete = { saleToDelete = sale.id },
-                        onComplete = {},
-                        modifier = Modifier
-                            .padding(horizontal = 16.dp, vertical = 6.dp)
-                            .graphicsLayer {
-                                alpha = progress
-                                translationY = 20.dp.toPx() * (1f - progress)
-                            }
-                    )
+                    Box(modifier = Modifier.graphicsLayer {
+                        alpha = progress
+                        translationY = 10.dp.toPx() * (1f - progress)
+                    }) {
+                        Spacer(Modifier.height(4.dp))
+                        SectionHeader(
+                            title = "Completed Sales",
+                            count = uiState.completedSales.size,
+                            onViewAll = {}
+                        )
+                    }
+                }
+
+                if (uiState.completedSales.isEmpty()) {
+                    item {
+                        if (isSearchActive && uiState.searchQuery.isNotEmpty()) {
+                            EmptyStateView(
+                                icon = Icons.Default.Search,
+                                title = "No results",
+                                subtitle = "No completed sales match \"${uiState.searchQuery}\"",
+                                modifier = Modifier.fillMaxWidth().padding(24.dp)
+                            )
+                        } else {
+                            EmptyStateView(
+                                icon = Icons.Default.CheckCircle,
+                                title = "No Completed Sales",
+                                subtitle = "Completed sales will appear here",
+                                modifier = Modifier.fillMaxWidth().padding(24.dp)
+                            )
+                        }
+                    }
+                } else {
+                    itemsIndexed(items = uiState.completedSales, key = { _, sale -> sale.id }) { index, sale ->
+                        var visible by remember { mutableStateOf(false) }
+                        LaunchedEffect(Unit) { delay((400 + index * 80).toLong()); visible = true }
+                        val progress by animateFloatAsState(
+                            targetValue = if (visible) 1f else 0f,
+                            animationSpec = tween(durationMillis = 320, easing = FastOutSlowInEasing),
+                            label = "completedSale$index"
+                        )
+                        SalesCard(
+                            sale = sale,
+                            onEdit = {},
+                            onDelete = { saleToDelete = sale.id },
+                            onComplete = {},
+                            modifier = Modifier
+                                .padding(horizontal = 16.dp, vertical = 6.dp)
+                                .graphicsLayer {
+                                    alpha = progress
+                                    translationY = 20.dp.toPx() * (1f - progress)
+                                }
+                        )
+                    }
                 }
             }
         }
@@ -471,7 +569,7 @@ fun DashboardScreen(
 }
 
 private fun nextPaymentLabel(uiState: DashboardUiState): String {
-    val nextSale = uiState.activeSales.minByOrNull { it.remainingDays }
+    val nextSale = uiState.activeSales.minByOrNull { it.nextSalesDate }
         ?: uiState.completedSales.minByOrNull { it.nextSalesDate }
     return nextSale?.nextSalesDate?.let {
         DateTimeFormatter.ofPattern("d MMM yy", Locale.getDefault()).format(it)

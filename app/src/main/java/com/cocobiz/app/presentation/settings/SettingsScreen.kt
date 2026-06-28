@@ -21,14 +21,19 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Backup
+import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material.icons.filled.NavigateNext
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Timer
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -52,15 +57,34 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.cocobiz.app.domain.model.DarkModeOption
 import com.cocobiz.app.ui.components.CocoBizTopBar
+import com.cocobiz.app.ui.components.ConfirmationDialog
 import kotlinx.coroutines.delay
 
 @Composable
 fun SettingsScreen(
     onNavigateToProfile: () -> Unit,
     onNavigateToBackup: () -> Unit,
+    onLogout: () -> Unit,
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
     val settings by viewModel.settings.collectAsStateWithLifecycle()
+    val reminder by viewModel.reminder.collectAsStateWithLifecycle()
+    var showLogoutDialog by remember { mutableStateOf(false) }
+
+    if (showLogoutDialog) {
+        ConfirmationDialog(
+            title = "Logout",
+            message = "Are you sure you want to logout?",
+            onConfirm = {
+                showLogoutDialog = false
+                viewModel.logout()
+                onLogout()
+            },
+            onDismiss = { showLogoutDialog = false },
+            confirmText = "Logout",
+            confirmButtonColor = MaterialTheme.colorScheme.error
+        )
+    }
 
     Scaffold(
         topBar = { CocoBizTopBar(title = "Settings") }
@@ -72,23 +96,52 @@ fun SettingsScreen(
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // ── Account (section 0, 60ms) ──────────────────────────────
+            // ── Account (section 0) ───────────────────────────────────
             item {
                 AnimatedSettingsSection(animDelay = 60) {
                     SettingsSection(title = "Account") {
                         SettingsNavigationItem(
                             icon = Icons.Default.AccountCircle,
                             title = "Business Profile",
-                            subtitle = "Manage your business information",
+                            subtitle = "View & edit your business information",
                             onClick = onNavigateToProfile
                         )
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { showLogoutDialog = true }
+                                .padding(vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                Icons.Default.Logout,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(Modifier.padding(horizontal = 8.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    "Logout",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.Medium,
+                                    color = MaterialTheme.colorScheme.error
+                                )
+                                Text(
+                                    "Sign out of your account",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
                     }
                 }
             }
 
-            // ── Notifications (section 1, 140ms) ─────────────────────
+            // ── Notifications (section 1) ─────────────────────────────
             item {
-                AnimatedSettingsSection(animDelay = 140) {
+                AnimatedSettingsSection(animDelay = 120) {
                     SettingsSection(title = "Notifications") {
                         SettingsSwitchItem(
                             icon = Icons.Default.Notifications,
@@ -131,21 +184,105 @@ fun SettingsScreen(
                                 }
                             }
                         }
-                        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-                        SettingsSwitchItem(
-                            icon = Icons.Default.Email,
-                            title = "Email Notifications",
-                            subtitle = "Receive completion emails",
-                            checked = settings.emailEnabled,
-                            onCheckedChange = viewModel::updateEmailEnabled
-                        )
                     }
                 }
             }
 
-            // ── Appearance (section 2, 220ms) ─────────────────────────
+            // ── Cloud Reminders (section 2) ───────────────────────────
             item {
-                AnimatedSettingsSection(animDelay = 220) {
+                AnimatedSettingsSection(animDelay = 180) {
+                    SettingsSection(title = "Cloud Reminders") {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                Icons.Default.Cloud,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(Modifier.padding(horizontal = 8.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    "Reminder Channel",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.Medium
+                                )
+                                Text(
+                                    "How you receive harvesting reminders",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                        Spacer(Modifier.height(8.dp))
+                        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            items(listOf("EMAIL", "WHATSAPP", "BOTH", "NONE")) { ch ->
+                                FilterChip(
+                                    selected = reminder.channel == ch,
+                                    onClick = { viewModel.setReminderChannel(ch) },
+                                    label = { Text(ch.lowercase().replaceFirstChar { it.uppercase() }) }
+                                )
+                            }
+                        }
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                Icons.Default.Timer,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(Modifier.padding(horizontal = 8.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    "Reminder Frequency",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.Medium
+                                )
+                                Text(
+                                    "How often reminders are sent",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                        Spacer(Modifier.height(8.dp))
+                        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            items(listOf("HOURLY", "DAILY", "WEEKLY", "MONTHLY")) { freq ->
+                                FilterChip(
+                                    selected = reminder.frequency == freq,
+                                    onClick = { viewModel.setReminderFrequency(freq) },
+                                    label = { Text(freq.lowercase().replaceFirstChar { it.uppercase() }) }
+                                )
+                            }
+                        }
+                        Spacer(Modifier.height(12.dp))
+                        Button(
+                            onClick = viewModel::saveReminder,
+                            enabled = !reminder.isSaving,
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            if (reminder.isSaving) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(16.dp),
+                                    strokeWidth = 2.dp,
+                                    color = androidx.compose.ui.graphics.Color.White
+                                )
+                                Spacer(Modifier.padding(horizontal = 4.dp))
+                                Text("Saving…")
+                            } else if (reminder.savedOk) {
+                                Text("Saved!")
+                            } else {
+                                Text("Save Reminder Settings", fontWeight = FontWeight.SemiBold)
+                            }
+                        }
+                    }
+                }
+            }
+
+            // ── Appearance (section 3) ────────────────────────────────
+            item {
+                AnimatedSettingsSection(animDelay = 240) {
                     SettingsSection(title = "Appearance") {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(
@@ -176,23 +313,23 @@ fun SettingsScreen(
                 }
             }
 
-            // ── Data (section 3, 300ms) ───────────────────────────────
+            // ── Data (section 4) ─────────────────────────────────────
             item {
                 AnimatedSettingsSection(animDelay = 300) {
                     SettingsSection(title = "Data") {
                         SettingsNavigationItem(
                             icon = Icons.Default.Backup,
                             title = "Backup & Restore",
-                            subtitle = "Backup your data locally",
+                            subtitle = "Backup data and sync to cloud",
                             onClick = onNavigateToBackup
                         )
                     }
                 }
             }
 
-            // ── About (section 4, 380ms) ──────────────────────────────
+            // ── About (section 5) ─────────────────────────────────────
             item {
-                AnimatedSettingsSection(animDelay = 380) {
+                AnimatedSettingsSection(animDelay = 360) {
                     SettingsSection(title = "About") {
                         SettingsInfoItem(
                             icon = Icons.Default.Info,
@@ -205,8 +342,6 @@ fun SettingsScreen(
         }
     }
 }
-
-// ── Wrapper that gives each section card a slide-up + fade entrance ───────────
 
 @Composable
 private fun AnimatedSettingsSection(animDelay: Int, content: @Composable () -> Unit) {

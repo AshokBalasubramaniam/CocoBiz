@@ -34,7 +34,8 @@ data class ProfileUiState(
     // Incremented on each successful save; never reset by loadProfile().
     // LaunchedEffect(savedEventCount) in the UI fires reliably even when the
     // repository Flow re-emits and resets isSaved within the same Compose frame.
-    val savedEventCount: Int = 0
+    val savedEventCount: Int = 0,
+    val isEditing: Boolean = false
 )
 
 @HiltViewModel
@@ -66,7 +67,8 @@ class ProfileViewModel @Inject constructor(
                         gstNumber = it.gstNumber,
                         logoPath = it.logoPath,
                         isLoaded = true,
-                        savedEventCount = _uiState.value.savedEventCount
+                        savedEventCount = _uiState.value.savedEventCount,
+                        isEditing = _uiState.value.isEditing
                     )
                 } ?: run {
                     _uiState.value = _uiState.value.copy(isLoaded = true)
@@ -89,6 +91,10 @@ class ProfileViewModel @Inject constructor(
             "gstNumber" -> _uiState.value.copy(gstNumber = value)
             else -> _uiState.value
         }
+    }
+
+    fun toggleEditing() {
+        _uiState.value = _uiState.value.copy(isEditing = !_uiState.value.isEditing)
     }
 
     fun saveProfile() {

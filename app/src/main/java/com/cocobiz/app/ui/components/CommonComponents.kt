@@ -93,10 +93,12 @@ fun GradientStatCard(
     valueColor: Color,
     modifier: Modifier = Modifier,
     subtitle: String = "",
-    cardBackground: Color = Color.Unspecified
+    cardBackground: Color = Color.Unspecified,
+    onClick: (() -> Unit)? = null
 ) {
+    val cardModifier = if (onClick != null) modifier.clickable(onClick = onClick) else modifier
     Card(
-        modifier = modifier,
+        modifier = cardModifier,
         shape = RoundedCornerShape(16.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         colors = CardDefaults.cardColors(

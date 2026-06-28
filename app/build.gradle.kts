@@ -105,6 +105,9 @@ dependencies {
     // Biometric (device PIN/pattern/password + fingerprint auth)
     implementation(libs.biometric)
 
+    // Encrypted secure storage for JWT token
+    implementation(libs.security.crypto)
+
     // Retrofit + OkHttp (MongoDB backend sync)
     implementation(libs.retrofit.core)
     implementation(libs.retrofit.gson)

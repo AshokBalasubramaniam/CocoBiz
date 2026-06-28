@@ -1,7 +1,8 @@
 const mongoose = require('mongoose');
 
 const userProfileSchema = new mongoose.Schema({
-  localId: { type: Number, default: 1, unique: true },
+  localId: { type: Number, default: 1 },
+  userId: { type: String, unique: true, index: true },
   businessName: { type: String, default: '' },
   ownerName: { type: String, default: '' },
   phone: { type: String, default: '' },

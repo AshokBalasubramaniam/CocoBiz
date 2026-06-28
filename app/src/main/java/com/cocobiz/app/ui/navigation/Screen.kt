@@ -33,6 +33,11 @@ sealed class Screen(val route: String) {
     data object SaleDetail : Screen("sale_detail/{saleId}") {
         fun createRoute(saleId: Long) = "sale_detail/$saleId"
     }
+
+    // Auth
+    data object Login : Screen("login")
+    data object Register : Screen("register")
+    data object ForgotPassword : Screen("forgot_password")
 }
 
 data class BottomNavItem(

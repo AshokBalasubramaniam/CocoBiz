@@ -1,6 +1,7 @@
 package com.cocobiz.app.di
 
 import com.cocobiz.app.BuildConfig
+import com.cocobiz.app.data.local.AuthPreferences
 import com.cocobiz.app.data.remote.api.CocoBizApiService
 import com.google.gson.GsonBuilder
 import dagger.Module
@@ -20,12 +21,23 @@ object NetworkModule {
 
     @Provides
     @Singleton
-    fun provideOkHttpClient(): OkHttpClient {
+    fun provideOkHttpClient(authPreferences: AuthPreferences): OkHttpClient {
         val logging = HttpLoggingInterceptor().apply {
             level = if (BuildConfig.DEBUG) HttpLoggingInterceptor.Level.BODY
             else HttpLoggingInterceptor.Level.NONE
         }
         return OkHttpClient.Builder()
+            .addInterceptor { chain ->
+                val token = authPreferences.token
+                val request = if (!token.isNullOrBlank()) {
+                    chain.request().newBuilder()
+                        .addHeader("Authorization", "Bearer $token")
+                        .build()
+                } else {
+                    chain.request()
+                }
+                chain.proceed(request)
+            }
             .addInterceptor(logging)
             .connectTimeout(30, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)

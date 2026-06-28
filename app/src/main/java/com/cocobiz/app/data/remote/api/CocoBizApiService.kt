@@ -27,6 +27,9 @@ interface CocoBizApiService {
     @DELETE("api/dealers/{localId}")
     suspend fun deleteDealer(@Path("localId") localId: Long)
 
+    @POST("api/dealers/bulk")
+    suspend fun bulkUpsertDealers(@Body body: Map<String, @JvmSuppressWildcards List<DealerDto>>): Map<String, String>
+
     // Sales
     @GET("api/sales")
     suspend fun getAllSales(): List<SalesEntryDto>
@@ -45,6 +48,9 @@ interface CocoBizApiService {
 
     @DELETE("api/sales/{localId}")
     suspend fun deleteSale(@Path("localId") localId: Long)
+
+    @POST("api/sales/bulk")
+    suspend fun bulkUpsertSales(@Body body: Map<String, @JvmSuppressWildcards List<SalesEntryDto>>): Map<String, String>
 
     // Profile
     @GET("api/profile")

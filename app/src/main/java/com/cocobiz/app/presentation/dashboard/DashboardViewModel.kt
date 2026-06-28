@@ -14,19 +14,23 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.time.LocalDate
 import javax.inject.Inject
+
+enum class ViewMode { NORMAL, NEXT_HARVESTING, YEAR_REPORT }
 
 data class DashboardUiState(
     val activeSales: List<SalesEntry> = emptyList(),
     val completedSales: List<SalesEntry> = emptyList(),
+    val yearSales: List<SalesEntry> = emptyList(),
     val stats: DashboardStats = DashboardStats(),
     val searchQuery: String = "",
     val isLoading: Boolean = false,
     val filterType: FilterType = FilterType.ALL,
     val sortType: SortType = SortType.NEWEST,
+    val viewMode: ViewMode = ViewMode.NORMAL,
     val settings: AppSettings = AppSettings()
 )
 
@@ -50,6 +54,7 @@ class DashboardViewModel @Inject constructor(
     private val _searchQuery = MutableStateFlow("")
     private val _filterType = MutableStateFlow(FilterType.ALL)
     private val _sortType = MutableStateFlow(SortType.NEWEST)
+    private val _viewMode = MutableStateFlow(ViewMode.NORMAL)
 
     val uiState: StateFlow<DashboardUiState> = combine(
         salesRepository.getAllSales(),
@@ -60,6 +65,7 @@ class DashboardViewModel @Inject constructor(
         _searchQuery,
         _filterType,
         _sortType,
+        _viewMode,
         settingsRepository.getSettings()
     ) { args ->
         @Suppress("UNCHECKED_CAST")
@@ -71,7 +77,13 @@ class DashboardViewModel @Inject constructor(
         val query = args[5] as String
         val filter = args[6] as FilterType
         val sort = args[7] as SortType
-        val settings = args[8] as AppSettings
+        val mode = args[8] as ViewMode
+        val settings = args[9] as AppSettings
+
+        val oneYearAgo = LocalDate.now().minusYears(1)
+        val yearSales = allSales
+            .filter { it.salesDate >= oneYearAgo }
+            .sortedByDescending { it.salesDate }
 
         val filtered = allSales
             .filter { sale ->
@@ -92,13 +104,26 @@ class DashboardViewModel @Inject constructor(
                     SortType.OLDEST -> list.sortedBy { it.createdAt }
                     SortType.HIGHEST_AMOUNT -> list.sortedByDescending { it.totalAmount }
                     SortType.LOWEST_AMOUNT -> list.sortedBy { it.totalAmount }
-                    SortType.NEAREST_DUE -> list.sortedBy { it.remainingDays }
+                    SortType.NEAREST_DUE -> list.sortedBy { it.nextSalesDate }
                 }
             }
 
+        val activeSales = when (mode) {
+            ViewMode.NEXT_HARVESTING ->
+                allSales.filter { it.status == SaleStatus.ACTIVE }
+                    .sortedBy { it.nextSalesDate }
+            else -> filtered.filter { it.status == SaleStatus.ACTIVE }
+        }
+
+        val completedSales = when (mode) {
+            ViewMode.NEXT_HARVESTING -> emptyList()
+            else -> filtered.filter { it.status == SaleStatus.COMPLETED }
+        }
+
         DashboardUiState(
-            activeSales = filtered.filter { it.status == SaleStatus.ACTIVE },
-            completedSales = filtered.filter { it.status == SaleStatus.COMPLETED },
+            activeSales = activeSales,
+            completedSales = completedSales,
+            yearSales = yearSales,
             stats = DashboardStats(
                 totalActiveSales = activeCount,
                 totalCompletedSales = completedCount,
@@ -108,6 +133,7 @@ class DashboardViewModel @Inject constructor(
             searchQuery = query,
             filterType = filter,
             sortType = sort,
+            viewMode = mode,
             settings = settings
         )
     }.stateIn(
@@ -116,27 +142,16 @@ class DashboardViewModel @Inject constructor(
         initialValue = DashboardUiState(isLoading = true)
     )
 
-    fun updateSearchQuery(query: String) {
-        _searchQuery.value = query
-    }
-
-    fun updateFilter(filter: FilterType) {
-        _filterType.value = filter
-    }
-
-    fun updateSort(sort: SortType) {
-        _sortType.value = sort
-    }
+    fun updateSearchQuery(query: String) { _searchQuery.value = query }
+    fun updateFilter(filter: FilterType) { _filterType.value = filter }
+    fun updateSort(sort: SortType) { _sortType.value = sort }
+    fun setViewMode(mode: ViewMode) { _viewMode.value = mode }
 
     fun deleteSale(id: Long) {
-        viewModelScope.launch {
-            salesRepository.deleteSale(id)
-        }
+        viewModelScope.launch { salesRepository.deleteSale(id) }
     }
 
     fun completeSale(id: Long) {
-        viewModelScope.launch {
-            salesRepository.markAsCompleted(id)
-        }
+        viewModelScope.launch { salesRepository.markAsCompleted(id) }
     }
 }
