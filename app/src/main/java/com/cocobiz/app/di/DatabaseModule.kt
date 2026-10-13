@@ -5,6 +5,7 @@ import androidx.room.Room
 import com.cocobiz.app.data.local.dao.DealerDao
 import com.cocobiz.app.data.local.dao.SalesEntryDao
 import com.cocobiz.app.data.local.dao.SettingsDao
+import com.cocobiz.app.data.local.dao.UserDao
 import com.cocobiz.app.data.local.dao.UserProfileDao
 import com.cocobiz.app.data.local.database.AppDatabase
 import dagger.Module
@@ -40,4 +41,7 @@ object DatabaseModule {
 
     @Provides
     fun provideSettingsDao(db: AppDatabase): SettingsDao = db.settingsDao()
+
+    @Provides
+    fun provideUserDao(db: AppDatabase): UserDao = db.userDao()
 }

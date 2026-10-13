@@ -1,59 +1,38 @@
 package com.cocobiz.app.data.repository
 
-import com.cocobiz.app.data.remote.api.CocoBizApiService
-import com.cocobiz.app.data.remote.dto.UserProfileDto
+import com.cocobiz.app.data.local.dao.UserProfileDao
+import com.cocobiz.app.data.local.entity.UserProfileEntity
 import com.cocobiz.app.domain.model.UserProfile
 import com.cocobiz.app.domain.repository.UserProfileRepository
-import com.cocobiz.app.util.NetworkConnectivityObserver
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
 class UserProfileRepositoryImpl @Inject constructor(
-    private val api: CocoBizApiService,
-    private val network: NetworkConnectivityObserver
+    private val dao: UserProfileDao
 ) : UserProfileRepository {
 
-    private val _profile = MutableStateFlow<UserProfile?>(null)
-    private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
-
-    init {
-        scope.launch {
-            network.onConnected.collect { refresh() }
-        }
-    }
-
-    private suspend fun refresh() {
-        runCatching { _profile.value = api.getProfile().toDomain() }
-    }
-
-    override fun getProfile(): Flow<UserProfile?> = _profile.asStateFlow()
+    override fun getProfile(): Flow<UserProfile?> = dao.getProfile().map { it?.toDomain() }
 
     override suspend fun saveProfile(profile: UserProfile) {
-        runCatching { api.saveProfile(profile.toDto()) }
-        _profile.value = profile
+        dao.insertOrUpdate(profile.copy(updatedAt = System.currentTimeMillis()).toEntity())
     }
 
-    private fun UserProfileDto.toDomain(): UserProfile = UserProfile(
-        id = localId, businessName = businessName, ownerName = ownerName,
+    private fun UserProfileEntity.toDomain(): UserProfile = UserProfile(
+        id = id, businessName = businessName, ownerName = ownerName,
         phone = phone, alternatePhone = alternatePhone, email = email,
         address = address, city = city, state = state, pincode = pincode,
         gstNumber = gstNumber, logoPath = logoPath,
         createdAt = createdAt, updatedAt = updatedAt
     )
 
-    private fun UserProfile.toDto(): UserProfileDto = UserProfileDto(
-        localId = id, businessName = businessName, ownerName = ownerName,
+    private fun UserProfile.toEntity(): UserProfileEntity = UserProfileEntity(
+        id = id, businessName = businessName, ownerName = ownerName,
         phone = phone, alternatePhone = alternatePhone, email = email,
         address = address, city = city, state = state, pincode = pincode,
         gstNumber = gstNumber, logoPath = logoPath,
-        createdAt = createdAt, updatedAt = System.currentTimeMillis()
+        createdAt = createdAt, updatedAt = updatedAt
     )
 }

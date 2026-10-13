@@ -1,9 +1,9 @@
 package com.cocobiz.app.ui.navigation
 
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Dashboard
+import androidx.compose.material.icons.filled.BarChart
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.People
-import androidx.compose.material.icons.filled.Assessment
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.ui.graphics.vector.ImageVector
 
@@ -51,7 +51,7 @@ val bottomNavItems = listOf(
     BottomNavItem(
         screen = Screen.Dashboard,
         label = "Dashboard",
-        icon = Icons.Default.Dashboard
+        icon = Icons.Default.Home
     ),
     BottomNavItem(
         screen = Screen.Dealers,
@@ -61,7 +61,7 @@ val bottomNavItems = listOf(
     BottomNavItem(
         screen = Screen.Reports,
         label = "Reports",
-        icon = Icons.Default.Assessment
+        icon = Icons.Default.BarChart
     ),
     BottomNavItem(
         screen = Screen.Settings,

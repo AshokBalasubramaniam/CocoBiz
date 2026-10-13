@@ -1,9 +1,11 @@
 package com.cocobiz.app.di
 
+import com.cocobiz.app.data.repository.AuthRepositoryImpl
 import com.cocobiz.app.data.repository.DealerRepositoryImpl
 import com.cocobiz.app.data.repository.SalesRepositoryImpl
 import com.cocobiz.app.data.repository.SettingsRepositoryImpl
 import com.cocobiz.app.data.repository.UserProfileRepositoryImpl
+import com.cocobiz.app.domain.repository.AuthRepository
 import com.cocobiz.app.domain.repository.DealerRepository
 import com.cocobiz.app.domain.repository.SalesRepository
 import com.cocobiz.app.domain.repository.SettingsRepository
@@ -33,4 +35,8 @@ abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun bindSettingsRepository(impl: SettingsRepositoryImpl): SettingsRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindAuthRepository(impl: AuthRepositoryImpl): AuthRepository
 }

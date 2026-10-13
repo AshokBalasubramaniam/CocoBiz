@@ -2,9 +2,7 @@ package com.cocobiz.app.presentation.auth
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.cocobiz.app.data.remote.api.AuthApiService
-import com.cocobiz.app.data.remote.dto.SendOtpRequest
-import com.cocobiz.app.data.remote.dto.VerifyOtpRequest
+import com.cocobiz.app.domain.repository.AuthRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -13,79 +11,39 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-enum class ForgotStep { SEND_OTP, VERIFY_OTP, SUCCESS }
-enum class OtpChannel { EMAIL, SMS }
-
 data class ForgotUiState(
     val identifier: String = "",
-    val channel: OtpChannel = OtpChannel.EMAIL,
-    val otp: String = "",
     val newPassword: String = "",
     val confirmPassword: String = "",
-    val step: ForgotStep = ForgotStep.SEND_OTP,
-    val maskedContact: String = "",
-    val canonicalContact: String = "",  // actual email/phone for verify-otp
     val isLoading: Boolean = false,
-    val error: String? = null
+    val error: String? = null,
+    val isSuccess: Boolean = false
 )
 
 @HiltViewModel
 class ForgotPasswordViewModel @Inject constructor(
-    private val authApi: AuthApiService
+    private val authRepository: AuthRepository
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(ForgotUiState())
     val state: StateFlow<ForgotUiState> = _state.asStateFlow()
 
     fun onIdentifierChange(v: String) = _state.update { it.copy(identifier = v, error = null) }
-    fun onChannelChange(ch: OtpChannel) = _state.update { it.copy(channel = ch, error = null) }
-    fun onOtpChange(v: String) = _state.update { it.copy(otp = v, error = null) }
     fun onNewPasswordChange(v: String) = _state.update { it.copy(newPassword = v, error = null) }
     fun onConfirmPasswordChange(v: String) = _state.update { it.copy(confirmPassword = v, error = null) }
 
-    fun sendOtp() {
-        val s = _state.value
-        if (s.identifier.isBlank()) {
-            _state.update { it.copy(error = "Enter your username, email or phone number") }
-            return
-        }
-        viewModelScope.launch {
-            _state.update { it.copy(isLoading = true, error = null) }
-            try {
-                val resp = authApi.sendOtp(
-                    SendOtpRequest(
-                        identifier = s.identifier.trim(),
-                        channel = s.channel.name
-                    )
-                )
-                val canonical = if (s.channel == OtpChannel.SMS) resp.userPhone else resp.userEmail
-                _state.update {
-                    it.copy(
-                        isLoading = false,
-                        step = ForgotStep.VERIFY_OTP,
-                        maskedContact = resp.masked,
-                        canonicalContact = canonical
-                    )
-                }
-            } catch (e: Exception) {
-                _state.update { it.copy(isLoading = false, error = e.toUserMessage()) }
-            }
-        }
-    }
-
-    fun verifyOtp(onSuccess: () -> Unit) {
+    fun resetPassword(onSuccess: () -> Unit) {
         val s = _state.value
         when {
-            s.otp.isBlank() -> { _state.update { it.copy(error = "Enter the OTP") }; return }
+            s.identifier.isBlank() -> { _state.update { it.copy(error = "Enter your username") }; return }
             s.newPassword.length < 6 -> { _state.update { it.copy(error = "New password must be at least 6 characters") }; return }
             s.newPassword != s.confirmPassword -> { _state.update { it.copy(error = "Passwords don't match") }; return }
         }
         viewModelScope.launch {
             _state.update { it.copy(isLoading = true, error = null) }
             try {
-                val verifyId = s.canonicalContact.ifBlank { s.identifier.trim() }
-                authApi.verifyOtp(VerifyOtpRequest(verifyId, s.otp.trim(), s.newPassword))
-                _state.update { it.copy(isLoading = false, step = ForgotStep.SUCCESS) }
+                authRepository.resetPassword(s.identifier.trim().lowercase(), s.newPassword)
+                _state.update { it.copy(isLoading = false, isSuccess = true) }
                 onSuccess()
             } catch (e: Exception) {
                 _state.update { it.copy(isLoading = false, error = e.toUserMessage()) }

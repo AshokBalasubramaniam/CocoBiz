@@ -20,7 +20,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Backup
@@ -31,13 +30,11 @@ import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Restore
 import androidx.compose.material.icons.filled.Warning
-import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -55,8 +52,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import android.content.ContextWrapper
 import androidx.compose.ui.platform.LocalContext
@@ -64,12 +59,16 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.FragmentActivity
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.cocobiz.app.ui.components.CocoBizTopBar
 import com.cocobiz.app.ui.components.ConfirmationDialog
+import com.cocobiz.app.ui.components.PrimaryButton
+import com.cocobiz.app.ui.components.SectionCard
+import com.cocobiz.app.ui.theme.FigmaColors
 
 private fun android.content.Context.findFragmentActivity(): FragmentActivity? {
     var ctx = this
@@ -80,6 +79,7 @@ private fun android.content.Context.findFragmentActivity(): FragmentActivity? {
     return null
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BackupRestoreScreen(
     onNavigateBack: () -> Unit,
@@ -222,13 +222,13 @@ fun BackupRestoreScreen(
                                         Icon(
                                             Icons.Default.DeleteForever,
                                             contentDescription = null,
-                                            tint = MaterialTheme.colorScheme.error,
+                                            tint = FigmaColors.Red600,
                                             modifier = Modifier.size(18.dp)
                                         )
                                         Spacer(Modifier.width(10.dp))
                                         Text(
                                             "Reset All Data",
-                                            color = MaterialTheme.colorScheme.error,
+                                            color = FigmaColors.Red600,
                                             fontWeight = FontWeight.Medium
                                         )
                                     }
@@ -255,157 +255,102 @@ fun BackupRestoreScreen(
 
             // ── Backup card ───────────────────────────────────────────
             item {
-                ActionCard(
-                    icon = Icons.Default.Backup,
-                    iconBackground = MaterialTheme.colorScheme.primaryContainer,
-                    iconTint = MaterialTheme.colorScheme.primary,
+                SectionCard(
+                    icon = { Icon(Icons.Default.Backup, contentDescription = null, tint = FigmaColors.Blue600, modifier = Modifier.size(18.dp)) },
+                    iconBackground = FigmaColors.Blue100,
                     title = "Create Backup",
-                    description = "Exports all sales, dealers & profile data as an encrypted file to Downloads/CocoBiz.",
-                    actionContent = {
-                        Button(
-                            onClick = { viewModel.backup() },
-                            enabled = !uiState.isBackingUp && !uiState.isRestoring && !uiState.isResetting,
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(12.dp)
-                        ) {
+                    titleColor = FigmaColors.Blue700,
+                    subtitle = "Save all your data to a file",
+                    subtitleColor = FigmaColors.Blue400,
+                    bannerColor = FigmaColors.Blue50,
+                    borderColor = FigmaColors.Blue100
+                ) {
+                    Text(
+                        "Exports all sales, dealers & profile data as an encrypted file to Downloads/CocoBiz.",
+                        fontSize = 13.sp,
+                        color = FigmaColors.Gray600
+                    )
+                    PrimaryButton(
+                        text = if (uiState.isBackingUp) "Creating backup..." else "Create Backup",
+                        onClick = { viewModel.backup() },
+                        enabled = !uiState.isBackingUp && !uiState.isRestoring && !uiState.isResetting,
+                        icon = {
                             if (uiState.isBackingUp) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(18.dp),
-                                    color = Color.White,
-                                    strokeWidth = 2.dp
-                                )
-                                Spacer(Modifier.width(10.dp))
-                                Text("Creating backup…", fontWeight = FontWeight.SemiBold)
+                                CircularProgressIndicator(modifier = Modifier.size(18.dp), color = FigmaColors.White, strokeWidth = 2.dp)
                             } else {
-                                Icon(Icons.Default.Backup, null, modifier = Modifier.size(18.dp))
-                                Spacer(Modifier.width(8.dp))
-                                Text("Create Backup", fontWeight = FontWeight.SemiBold)
+                                Icon(Icons.Default.Backup, contentDescription = null, modifier = Modifier.size(18.dp))
                             }
                         }
-                    }
-                )
+                    )
+                }
             }
 
             // ── Restore card ──────────────────────────────────────────
             item {
-                ActionCard(
-                    icon = Icons.Default.FolderOpen,
-                    iconBackground = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f),
-                    iconTint = MaterialTheme.colorScheme.error,
+                SectionCard(
+                    icon = { Icon(Icons.Default.FolderOpen, contentDescription = null, tint = FigmaColors.Orange600, modifier = Modifier.size(18.dp)) },
+                    iconBackground = FigmaColors.Orange100,
                     title = "Restore from Backup",
-                    description = "Choose a .cocobak file from Downloads/CocoBiz to restore your data.",
-                    actionContent = {
-                        OutlinedButton(
-                            onClick = { filePicker.launch(arrayOf("*/*")) },
-                            enabled = !uiState.isBackingUp && !uiState.isRestoring && !uiState.isResetting,
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(12.dp),
-                            colors = ButtonDefaults.outlinedButtonColors(
-                                contentColor = MaterialTheme.colorScheme.error
-                            )
-                        ) {
-                            if (uiState.isRestoring) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(18.dp),
-                                    color = MaterialTheme.colorScheme.error,
-                                    strokeWidth = 2.dp
-                                )
-                                Spacer(Modifier.width(10.dp))
-                                Text("Restoring data…", fontWeight = FontWeight.SemiBold)
-                            } else {
-                                Icon(Icons.Default.Restore, null, modifier = Modifier.size(18.dp))
-                                Spacer(Modifier.width(8.dp))
-                                Text("Choose Backup File", fontWeight = FontWeight.SemiBold)
-                            }
+                    titleColor = FigmaColors.Orange700,
+                    subtitle = "Load data from a backup file",
+                    subtitleColor = FigmaColors.Orange400,
+                    bannerColor = FigmaColors.Orange50,
+                    borderColor = FigmaColors.Orange100
+                ) {
+                    Text(
+                        "Choose a .cocobak file from Downloads/CocoBiz to restore your data.",
+                        fontSize = 13.sp,
+                        color = FigmaColors.Gray600
+                    )
+                    OutlinedButton(
+                        onClick = { filePicker.launch(arrayOf("*/*")) },
+                        enabled = !uiState.isBackingUp && !uiState.isRestoring && !uiState.isResetting,
+                        modifier = Modifier.fillMaxWidth().height(56.dp),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = FigmaColors.Red600)
+                    ) {
+                        if (uiState.isRestoring) {
+                            CircularProgressIndicator(modifier = Modifier.size(18.dp), color = FigmaColors.Red600, strokeWidth = 2.dp)
+                            Spacer(Modifier.width(10.dp))
+                            Text("Restoring data...", fontWeight = FontWeight.Bold)
+                        } else {
+                            Icon(Icons.Default.Restore, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text("Choose Backup File", fontWeight = FontWeight.Bold)
                         }
                     }
-                )
+                }
             }
 
             // ── Info card ─────────────────────────────────────────────
             item {
-                Card(
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
-                    ),
-                    elevation = CardDefaults.cardElevation(0.dp)
+                SectionCard(
+                    icon = { Icon(Icons.Default.Lock, contentDescription = null, tint = FigmaColors.Purple700, modifier = Modifier.size(18.dp)) },
+                    iconBackground = FigmaColors.Purple200,
+                    title = "Good to Know",
+                    titleColor = FigmaColors.Purple900,
+                    subtitle = "How your data is protected",
+                    subtitleColor = FigmaColors.Purple600,
+                    bannerColor = FigmaColors.Purple100,
+                    borderColor = FigmaColors.Purple200
                 ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        InfoRow(
-                            icon = Icons.Default.Lock,
-                            iconTint = MaterialTheme.colorScheme.primary,
-                            text = "Backup files are AES-256 encrypted — only CocoBiz can read them."
-                        )
-                        InfoRow(
-                            icon = Icons.Default.CheckCircle,
-                            iconTint = Color(0xFF2E7D32),
-                            text = "Files are saved to Downloads/CocoBiz as .cocobak files."
-                        )
-                        InfoRow(
-                            icon = Icons.Default.Warning,
-                            iconTint = Color(0xFFE65100),
-                            text = "Reset (⋮ menu) permanently deletes all data and requires device authentication."
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun ActionCard(
-    icon: ImageVector,
-    iconBackground: Color,
-    iconTint: Color,
-    title: String,
-    description: String,
-    actionContent: @Composable () -> Unit
-) {
-    Card(
-        shape = RoundedCornerShape(20.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-    ) {
-        Column(modifier = Modifier.padding(20.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    modifier = Modifier
-                        .size(52.dp)
-                        .clip(CircleShape)
-                        .background(iconBackground),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        icon,
-                        contentDescription = null,
-                        tint = iconTint,
-                        modifier = Modifier.size(26.dp)
+                    InfoRow(
+                        icon = Icons.Default.Lock,
+                        iconTint = FigmaColors.Blue600,
+                        text = "Backup files are AES-256 encrypted — only CocoBiz can read them."
                     )
-                }
-                Spacer(Modifier.width(14.dp))
-                Column {
-                    Text(
-                        title,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
+                    InfoRow(
+                        icon = Icons.Default.CheckCircle,
+                        iconTint = FigmaColors.Green700,
+                        text = "Files are saved to Downloads/CocoBiz as .cocobak files."
                     )
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        description,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    InfoRow(
+                        icon = Icons.Default.Warning,
+                        iconTint = FigmaColors.Orange600,
+                        text = "Reset (⋮ menu) permanently deletes all data and requires device authentication."
                     )
                 }
             }
-            Spacer(Modifier.height(16.dp))
-            actionContent()
         }
     }
 }
@@ -413,21 +358,11 @@ private fun ActionCard(
 @Composable
 private fun InfoRow(
     icon: ImageVector,
-    iconTint: Color,
+    iconTint: androidx.compose.ui.graphics.Color,
     text: String
 ) {
-    Row(verticalAlignment = Alignment.Top) {
-        Icon(
-            icon,
-            contentDescription = null,
-            tint = iconTint,
-            modifier = Modifier.size(18.dp)
-        )
-        Spacer(Modifier.width(10.dp))
-        Text(
-            text,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+    Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        Icon(icon, contentDescription = null, tint = iconTint, modifier = Modifier.size(18.dp))
+        Text(text, fontSize = 13.sp, color = FigmaColors.Gray600)
     }
 }

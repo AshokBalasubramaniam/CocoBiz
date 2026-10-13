@@ -5,10 +5,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.cocobiz.app.domain.model.SalesEntry
 import com.cocobiz.app.domain.repository.SalesRepository
-import com.cocobiz.app.util.DateUtils.getEndOfMonth
-import com.cocobiz.app.util.DateUtils.getEndOfYear
-import com.cocobiz.app.util.DateUtils.getStartOfMonth
-import com.cocobiz.app.util.DateUtils.getStartOfYear
 import com.cocobiz.app.util.PdfExporter
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
@@ -32,6 +28,10 @@ enum class ReportType(val displayName: String) {
 data class ReportsUiState(
     val sales: List<SalesEntry> = emptyList(),
     val totalRevenue: Double = 0.0,
+    val totalQuantity: Double = 0.0,
+    val averageOrder: Double = 0.0,
+    val trendPercent: Double? = null,
+    val sparklineValues: List<Double> = emptyList(),
     val reportType: ReportType = ReportType.MONTHLY,
     val selectedMonth: Int = LocalDate.now().monthValue,
     val selectedYear: Int = LocalDate.now().year,
@@ -58,34 +58,42 @@ class ReportsViewModel @Inject constructor(
         salesRepository.getAllSales(),
         _exportState
     ) { reportType, month, year, allSales, exportState ->
+        // Filtering by the sale's actual business date (salesDate), not the row's
+        // createdAt timestamp - a sale entered days after it happened must still count
+        // toward the day/week/month/year it was actually sold in, not the entry date.
         val now = LocalDate.now()
         val filtered = when (reportType) {
-            ReportType.DAILY -> {
-                val dayStart = com.cocobiz.app.util.DateUtils.getStartOfDay(now)
-                val dayEnd = com.cocobiz.app.util.DateUtils.getEndOfDay(now)
-                allSales.filter { it.createdAt in dayStart..dayEnd }
-            }
+            ReportType.DAILY -> allSales.filter { it.salesDate == now }
             ReportType.WEEKLY -> {
                 val weekStart = now.minusDays(7)
-                val start = com.cocobiz.app.util.DateUtils.getStartOfDay(weekStart)
-                val end = com.cocobiz.app.util.DateUtils.getEndOfDay(now)
-                allSales.filter { it.createdAt in start..end }
+                allSales.filter { it.salesDate in weekStart..now }
             }
-            ReportType.MONTHLY -> {
-                val monthDate = LocalDate.of(year, month, 1)
-                allSales.filter {
-                    it.createdAt in getStartOfMonth(monthDate)..getEndOfMonth(monthDate)
-                }
+            ReportType.MONTHLY -> allSales.filter {
+                it.salesDate.year == year && it.salesDate.monthValue == month
             }
-            ReportType.YEARLY -> {
-                allSales.filter {
-                    it.createdAt in getStartOfYear(year)..getEndOfYear(year)
-                }
-            }
+            ReportType.YEARLY -> allSales.filter { it.salesDate.year == year }
         }
+        // Last 8 calendar months of revenue (oldest first), for the trend sparkline
+        // and the "vs last month" comparison - independent of the selected filter.
+        val monthlyRevenue = (7 downTo 0).map { offset ->
+            val monthDate = LocalDate.now().minusMonths(offset.toLong())
+            allSales
+                .filter { it.salesDate.year == monthDate.year && it.salesDate.monthValue == monthDate.monthValue }
+                .sumOf { it.totalAmount }
+        }
+        val thisMonthRevenue = monthlyRevenue.last()
+        val lastMonthRevenue = monthlyRevenue[monthlyRevenue.size - 2]
+        val trend = if (lastMonthRevenue > 0) {
+            ((thisMonthRevenue - lastMonthRevenue) / lastMonthRevenue) * 100
+        } else null
+
         ReportsUiState(
             sales = filtered,
             totalRevenue = filtered.sumOf { it.totalAmount },
+            totalQuantity = filtered.sumOf { it.quantity },
+            averageOrder = if (filtered.isNotEmpty()) filtered.sumOf { it.totalAmount } / filtered.size else 0.0,
+            trendPercent = trend,
+            sparklineValues = monthlyRevenue,
             reportType = reportType,
             selectedMonth = month,
             selectedYear = year,

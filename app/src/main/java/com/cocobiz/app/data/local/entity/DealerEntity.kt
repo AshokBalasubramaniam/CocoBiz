@@ -12,8 +12,12 @@ data class DealerEntity(
     val alternatePhone: String = "",
     val email: String = "",
     val address: String = "",
+    val city: String = "",
+    val state: String = "",
+    val pincode: String = "",
     val notes: String = "",
     val photoPath: String = "",
+    val isActive: Boolean = true,
     val createdAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = System.currentTimeMillis()
 )

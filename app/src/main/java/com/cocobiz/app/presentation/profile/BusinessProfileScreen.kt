@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Business
 import androidx.compose.material.icons.filled.Edit
@@ -26,14 +27,14 @@ import androidx.compose.material.icons.filled.LocationCity
 import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Phone
-import androidx.compose.material.icons.filled.PinDrop
+import androidx.compose.material.icons.filled.Pin
 import androidx.compose.material.icons.filled.Receipt
+import androidx.compose.material.icons.filled.Save
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -44,7 +45,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -57,11 +57,14 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.cocobiz.app.R
-import com.cocobiz.app.ui.components.CocoBizTextField
 import com.cocobiz.app.ui.components.CocoBizTopBar
-import com.cocobiz.app.ui.theme.GradientGreenEnd
-import com.cocobiz.app.ui.theme.GradientGreenStart
+import com.cocobiz.app.ui.components.FormInput
+import com.cocobiz.app.ui.components.PrimaryButton
+import com.cocobiz.app.ui.components.SectionCard
+import com.cocobiz.app.ui.theme.DashboardColors
+import com.cocobiz.app.ui.theme.FigmaColors
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BusinessProfileScreen(
     onNavigateBack: () -> Unit,
@@ -85,11 +88,7 @@ fun BusinessProfileScreen(
                 actions = {
                     if (!uiState.isEditing) {
                         IconButton(onClick = viewModel::toggleEditing) {
-                            Icon(
-                                Icons.Default.Edit,
-                                contentDescription = "Edit",
-                                tint = MaterialTheme.colorScheme.primary
-                            )
+                            Icon(Icons.Default.Edit, contentDescription = "Edit", tint = FigmaColors.Blue600)
                         }
                     }
                 }
@@ -101,16 +100,15 @@ fun BusinessProfileScreen(
                 .fillMaxSize()
                 .padding(innerPadding),
             contentPadding = PaddingValues(bottom = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(0.dp)
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Profile header
             item {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .background(
                             Brush.linearGradient(
-                                listOf(GradientGreenStart, GradientGreenEnd)
+                                listOf(DashboardColors.BannerGradientStart, DashboardColors.BannerGradientEnd)
                             )
                         )
                         .padding(vertical = 28.dp),
@@ -128,16 +126,16 @@ fun BusinessProfileScreen(
                         Spacer(Modifier.height(8.dp))
                         Text(
                             text = uiState.businessName.ifBlank { "Your Business" },
-                            style = MaterialTheme.typography.titleMedium,
+                            fontSize = 18.sp,
                             fontWeight = FontWeight.Bold,
-                            color = Color.White,
+                            color = FigmaColors.White,
                             textAlign = TextAlign.Center
                         )
                         if (uiState.ownerName.isNotBlank()) {
                             Text(
                                 text = uiState.ownerName,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = Color.White.copy(alpha = 0.85f)
+                                fontSize = 13.sp,
+                                color = FigmaColors.White.copy(alpha = 0.85f)
                             )
                         }
                     }
@@ -145,102 +143,126 @@ fun BusinessProfileScreen(
             }
 
             if (uiState.isEditing) {
-                // ── Edit mode ─────────────────────────────────────────
                 item {
-                    ProfileSection(title = "Business Information") {
-                        CocoBizTextField(
+                    SectionCard(
+                        icon = { Icon(Icons.Default.Business, contentDescription = null, tint = FigmaColors.Blue600, modifier = Modifier.size(18.dp)) },
+                        iconBackground = FigmaColors.Blue100,
+                        title = "Business Information",
+                        titleColor = FigmaColors.Blue700,
+                        subtitle = "Your business identity",
+                        subtitleColor = FigmaColors.Blue400,
+                        bannerColor = FigmaColors.Blue50,
+                        borderColor = FigmaColors.Blue100,
+                        modifier = Modifier.padding(horizontal = 16.dp)
+                    ) {
+                        FormInput(
                             value = uiState.businessName,
                             onValueChange = { viewModel.updateField("businessName", it) },
-                            label = "Business Name *",
-                            leadingIcon = Icons.Default.Business,
-                            isError = uiState.businessNameError.isNotBlank(),
+                            placeholder = "Business Name *",
+                            leadingIcon = { Icon(Icons.Default.Business, contentDescription = null, tint = FigmaColors.Gray400, modifier = Modifier.size(18.dp)) },
                             errorMessage = uiState.businessNameError
                         )
-                        Spacer(Modifier.height(12.dp))
-                        CocoBizTextField(
+                        FormInput(
                             value = uiState.ownerName,
                             onValueChange = { viewModel.updateField("ownerName", it) },
-                            label = "Owner Name *",
-                            leadingIcon = Icons.Default.Person,
-                            isError = uiState.ownerNameError.isNotBlank(),
+                            placeholder = "Owner Name *",
+                            leadingIcon = { Icon(Icons.Default.Person, contentDescription = null, tint = FigmaColors.Gray400, modifier = Modifier.size(18.dp)) },
                             errorMessage = uiState.ownerNameError
                         )
-                        Spacer(Modifier.height(12.dp))
-                        CocoBizTextField(
+                        FormInput(
                             value = uiState.gstNumber,
                             onValueChange = { viewModel.updateField("gstNumber", it) },
-                            label = "GST Number (Optional)",
-                            leadingIcon = Icons.Default.Receipt
+                            placeholder = "GST Number (Optional)",
+                            leadingIcon = { Icon(Icons.Default.Receipt, contentDescription = null, tint = FigmaColors.Gray400, modifier = Modifier.size(18.dp)) }
                         )
                     }
                 }
 
                 item {
-                    ProfileSection(title = "Contact Information") {
-                        CocoBizTextField(
+                    SectionCard(
+                        icon = { Icon(Icons.Default.Phone, contentDescription = null, tint = FigmaColors.Green700, modifier = Modifier.size(18.dp)) },
+                        iconBackground = FigmaColors.Green200,
+                        title = "Contact Information",
+                        titleColor = FigmaColors.Green800,
+                        subtitle = "How dealers and staff reach you",
+                        subtitleColor = FigmaColors.Green600,
+                        bannerColor = FigmaColors.Green100,
+                        borderColor = FigmaColors.Green200,
+                        modifier = Modifier.padding(horizontal = 16.dp)
+                    ) {
+                        FormInput(
                             value = uiState.phone,
                             onValueChange = { viewModel.updateField("phone", it) },
-                            label = "Mobile Number *",
-                            leadingIcon = Icons.Default.Phone,
-                            keyboardType = KeyboardType.Phone,
-                            isError = uiState.phoneError.isNotBlank(),
+                            placeholder = "Mobile Number *",
+                            leadingIcon = { Icon(Icons.Default.Phone, contentDescription = null, tint = FigmaColors.Gray400, modifier = Modifier.size(18.dp)) },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                             errorMessage = uiState.phoneError
                         )
-                        Spacer(Modifier.height(12.dp))
-                        CocoBizTextField(
+                        FormInput(
                             value = uiState.alternatePhone,
                             onValueChange = { viewModel.updateField("alternatePhone", it) },
-                            label = "Alternate Number",
-                            leadingIcon = Icons.Default.Phone,
-                            keyboardType = KeyboardType.Phone
+                            placeholder = "Alternate Number",
+                            leadingIcon = { Icon(Icons.Default.Phone, contentDescription = null, tint = FigmaColors.Gray400, modifier = Modifier.size(18.dp)) },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone)
                         )
-                        Spacer(Modifier.height(12.dp))
-                        CocoBizTextField(
+                        FormInput(
                             value = uiState.email,
                             onValueChange = { viewModel.updateField("email", it) },
-                            label = "Email",
-                            leadingIcon = Icons.Default.Email,
-                            keyboardType = KeyboardType.Email
+                            placeholder = "Email",
+                            leadingIcon = { Icon(Icons.Default.Email, contentDescription = null, tint = FigmaColors.Gray400, modifier = Modifier.size(18.dp)) },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email)
                         )
                     }
                 }
 
                 item {
-                    ProfileSection(title = "Address") {
-                        CocoBizTextField(
+                    SectionCard(
+                        icon = { Icon(Icons.Default.Home, contentDescription = null, tint = FigmaColors.Orange600, modifier = Modifier.size(18.dp)) },
+                        iconBackground = FigmaColors.Orange100,
+                        title = "Address",
+                        titleColor = FigmaColors.Orange700,
+                        subtitle = "Where your business is located",
+                        subtitleColor = FigmaColors.Orange400,
+                        bannerColor = FigmaColors.Orange50,
+                        borderColor = FigmaColors.Orange100,
+                        modifier = Modifier.padding(horizontal = 16.dp)
+                    ) {
+                        FormInput(
                             value = uiState.address,
                             onValueChange = { viewModel.updateField("address", it) },
-                            label = "Full Address",
-                            leadingIcon = Icons.Default.Home,
-                            maxLines = 3
+                            placeholder = "Full Address",
+                            leadingIcon = { Icon(Icons.Default.Home, contentDescription = null, tint = FigmaColors.Gray400, modifier = Modifier.size(18.dp)) }
                         )
-                        Spacer(Modifier.height(12.dp))
-                        CocoBizTextField(
-                            value = uiState.city,
-                            onValueChange = { viewModel.updateField("city", it) },
-                            label = "City",
-                            leadingIcon = Icons.Default.LocationCity
-                        )
-                        Spacer(Modifier.height(12.dp))
-                        CocoBizTextField(
-                            value = uiState.state,
-                            onValueChange = { viewModel.updateField("state", it) },
-                            label = "State",
-                            leadingIcon = Icons.Default.Map
-                        )
-                        Spacer(Modifier.height(12.dp))
-                        CocoBizTextField(
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            FormInput(
+                                value = uiState.city,
+                                onValueChange = { viewModel.updateField("city", it) },
+                                placeholder = "City",
+                                leadingIcon = { Icon(Icons.Default.LocationCity, contentDescription = null, tint = FigmaColors.Gray400, modifier = Modifier.size(18.dp)) },
+                                modifier = Modifier.weight(1f)
+                            )
+                            FormInput(
+                                value = uiState.state,
+                                onValueChange = { viewModel.updateField("state", it) },
+                                placeholder = "State",
+                                leadingIcon = { Icon(Icons.Default.Map, contentDescription = null, tint = FigmaColors.Gray400, modifier = Modifier.size(18.dp)) },
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                        FormInput(
                             value = uiState.pincode,
                             onValueChange = { viewModel.updateField("pincode", it) },
-                            label = "Pincode",
-                            leadingIcon = Icons.Default.PinDrop,
-                            keyboardType = KeyboardType.Number
+                            placeholder = "Pincode",
+                            leadingIcon = { Icon(Icons.Default.Pin, contentDescription = null, tint = FigmaColors.Gray400, modifier = Modifier.size(18.dp)) },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                         )
                     }
                 }
 
                 item {
-                    Spacer(Modifier.height(8.dp))
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -249,80 +271,91 @@ fun BusinessProfileScreen(
                     ) {
                         OutlinedButton(
                             onClick = viewModel::toggleEditing,
-                            modifier = Modifier.weight(1f).height(52.dp),
+                            modifier = Modifier.weight(1f).height(56.dp),
                             shape = RoundedCornerShape(16.dp)
                         ) {
                             Text("Cancel", fontWeight = FontWeight.Bold)
                         }
-                        Button(
+                        PrimaryButton(
+                            text = if (uiState.isSaving) "Saving..." else "Save",
                             onClick = viewModel::saveProfile,
-                            modifier = Modifier.weight(1f).height(52.dp),
-                            shape = RoundedCornerShape(16.dp),
                             enabled = !uiState.isSaving,
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.primary
-                            )
-                        ) {
-                            Text(
-                                if (uiState.isSaving) "Saving…" else "Save",
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
+                            modifier = Modifier.weight(1f),
+                            icon = { Icon(Icons.Default.Save, contentDescription = null, modifier = Modifier.size(18.dp)) }
+                        )
                     }
                 }
             } else {
-                // ── Read-only mode ────────────────────────────────────
                 item {
-                    ProfileSection(title = "Business Information") {
-                        ProfileRow(Icons.Default.Business, "Business Name", uiState.businessName)
-                        ProfileRow(Icons.Default.Person, "Owner Name", uiState.ownerName)
-                        if (uiState.gstNumber.isNotBlank())
-                            ProfileRow(Icons.Default.Receipt, "GST Number", uiState.gstNumber)
+                    SectionCard(
+                        icon = { Icon(Icons.Default.Business, contentDescription = null, tint = FigmaColors.Blue600, modifier = Modifier.size(18.dp)) },
+                        iconBackground = FigmaColors.Blue100,
+                        title = "Business Information",
+                        titleColor = FigmaColors.Blue700,
+                        subtitle = "Your business identity",
+                        subtitleColor = FigmaColors.Blue400,
+                        bannerColor = FigmaColors.Blue50,
+                        borderColor = FigmaColors.Blue100,
+                        modifier = Modifier.padding(horizontal = 16.dp)
+                    ) {
+                        ProfileInfoRow(Icons.Default.Business, "Business Name", uiState.businessName)
+                        ProfileInfoRow(Icons.Default.Person, "Owner Name", uiState.ownerName)
+                        if (uiState.gstNumber.isNotBlank()) {
+                            ProfileInfoRow(Icons.Default.Receipt, "GST Number", uiState.gstNumber)
+                        }
                     }
                 }
 
                 item {
-                    ProfileSection(title = "Contact Information") {
-                        ProfileRow(Icons.Default.Phone, "Mobile", uiState.phone)
-                        if (uiState.alternatePhone.isNotBlank())
-                            ProfileRow(Icons.Default.Phone, "Alternate", uiState.alternatePhone)
-                        if (uiState.email.isNotBlank())
-                            ProfileRow(Icons.Default.Email, "Email", uiState.email)
+                    SectionCard(
+                        icon = { Icon(Icons.Default.Phone, contentDescription = null, tint = FigmaColors.Green700, modifier = Modifier.size(18.dp)) },
+                        iconBackground = FigmaColors.Green200,
+                        title = "Contact Information",
+                        titleColor = FigmaColors.Green800,
+                        subtitle = "How dealers and staff reach you",
+                        subtitleColor = FigmaColors.Green600,
+                        bannerColor = FigmaColors.Green100,
+                        borderColor = FigmaColors.Green200,
+                        modifier = Modifier.padding(horizontal = 16.dp)
+                    ) {
+                        ProfileInfoRow(Icons.Default.Phone, "Mobile", uiState.phone)
+                        if (uiState.alternatePhone.isNotBlank()) {
+                            ProfileInfoRow(Icons.Default.Phone, "Alternate", uiState.alternatePhone)
+                        }
+                        if (uiState.email.isNotBlank()) {
+                            ProfileInfoRow(Icons.Default.Email, "Email", uiState.email)
+                        }
                     }
                 }
 
                 if (uiState.address.isNotBlank() || uiState.city.isNotBlank()) {
                     item {
-                        ProfileSection(title = "Address") {
-                            if (uiState.address.isNotBlank())
-                                ProfileRow(Icons.Default.Home, "Address", uiState.address)
-                            if (uiState.city.isNotBlank())
-                                ProfileRow(Icons.Default.LocationCity, "City", uiState.city)
-                            if (uiState.state.isNotBlank())
-                                ProfileRow(Icons.Default.Map, "State", uiState.state)
-                            if (uiState.pincode.isNotBlank())
-                                ProfileRow(Icons.Default.PinDrop, "Pincode", uiState.pincode)
+                        SectionCard(
+                            icon = { Icon(Icons.Default.Home, contentDescription = null, tint = FigmaColors.Orange600, modifier = Modifier.size(18.dp)) },
+                            iconBackground = FigmaColors.Orange100,
+                            title = "Address",
+                            titleColor = FigmaColors.Orange700,
+                            subtitle = "Where your business is located",
+                            subtitleColor = FigmaColors.Orange400,
+                            bannerColor = FigmaColors.Orange50,
+                            borderColor = FigmaColors.Orange100,
+                            modifier = Modifier.padding(horizontal = 16.dp)
+                        ) {
+                            if (uiState.address.isNotBlank()) ProfileInfoRow(Icons.Default.Home, "Address", uiState.address)
+                            if (uiState.city.isNotBlank()) ProfileInfoRow(Icons.Default.LocationCity, "City", uiState.city)
+                            if (uiState.state.isNotBlank()) ProfileInfoRow(Icons.Default.Map, "State", uiState.state)
+                            if (uiState.pincode.isNotBlank()) ProfileInfoRow(Icons.Default.Pin, "Pincode", uiState.pincode)
                         }
                     }
                 }
 
                 item {
-                    Spacer(Modifier.height(8.dp))
-                    Button(
+                    PrimaryButton(
+                        text = "Edit Profile",
                         onClick = viewModel::toggleEditing,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp)
-                            .height(52.dp),
-                        shape = RoundedCornerShape(16.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.primary
-                        )
-                    ) {
-                        Icon(Icons.Default.Edit, null, modifier = Modifier.size(18.dp))
-                        Spacer(Modifier.width(8.dp))
-                        Text("Edit Profile", fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                    }
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                        icon = { Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(18.dp)) }
+                    )
                 }
             }
         }
@@ -330,54 +363,24 @@ fun BusinessProfileScreen(
 }
 
 @Composable
-private fun ProfileRow(icon: ImageVector, label: String, value: String) {
+private fun ProfileInfoRow(icon: ImageVector, label: String, value: String) {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 6.dp),
-        verticalAlignment = Alignment.CenterVertically
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Icon(
-            icon,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(18.dp)
-        )
-        Spacer(Modifier.width(12.dp))
-        Column {
-            Text(
-                label,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontSize = 10.sp
-            )
-            Text(
-                value.ifBlank { "—" },
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Medium
-            )
+        Box(
+            modifier = Modifier
+                .size(36.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(FigmaColors.Gray100),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(icon, contentDescription = null, tint = FigmaColors.Gray600, modifier = Modifier.size(18.dp))
         }
-    }
-}
-
-@Composable
-private fun ProfileSection(title: String, content: @Composable () -> Unit) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp)
-    ) {
-        Text(
-            text = title,
-            style = MaterialTheme.typography.labelLarge,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.padding(bottom = 4.dp)
-        )
-        HorizontalDivider(
-            color = MaterialTheme.colorScheme.primaryContainer,
-            modifier = Modifier.padding(bottom = 12.dp)
-        )
-        content()
+        Column {
+            Text(label, fontSize = 11.sp, color = FigmaColors.Gray400)
+            Text(value.ifBlank { "—" }, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = FigmaColors.Gray900)
+        }
     }
 }

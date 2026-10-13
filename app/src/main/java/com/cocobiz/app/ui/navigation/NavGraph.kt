@@ -4,19 +4,18 @@ import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Icon
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
-import androidx.navigation.NavDestination.Companion.hierarchy
-import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -24,6 +23,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.cocobiz.app.presentation.auth.ForgotPasswordScreen
+import com.cocobiz.app.ui.components.FloatingBottomNavBar
 import com.cocobiz.app.presentation.auth.LoginScreen
 import com.cocobiz.app.presentation.auth.RegisterScreen
 import com.cocobiz.app.presentation.dashboard.DashboardScreen
@@ -36,6 +36,8 @@ import com.cocobiz.app.presentation.sales.AddSaleScreen
 import com.cocobiz.app.presentation.sales.EditSaleScreen
 import com.cocobiz.app.presentation.settings.BackupRestoreScreen
 import com.cocobiz.app.presentation.settings.SettingsScreen
+import com.cocobiz.app.ui.theme.DashboardColors
+import kotlinx.coroutines.launch
 
 @Composable
 fun CocoBizNavGraph(isLoggedIn: Boolean = false) {
@@ -43,53 +45,37 @@ fun CocoBizNavGraph(isLoggedIn: Boolean = false) {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = navBackStackEntry?.destination
 
-    val bottomNavRoutes = listOf(
-        Screen.Dashboard.route,
-        Screen.Dealers.route,
-        Screen.Reports.route,
-        Screen.Settings.route
-    )
-    val showBottomBar = currentDestination?.route in bottomNavRoutes
+    // The 4 bottom-nav tabs live as pages of one shared HorizontalPager (hosted at
+    // Screen.Dashboard.route) so the user can swipe left/right between them, not
+    // just tap the bottom bar. bottomNavItems' order defines the page order.
+    val pagerState = rememberPagerState(pageCount = { bottomNavItems.size })
+    val tabScope = rememberCoroutineScope()
+
+    val showBottomBar = currentDestination?.route == Screen.Dashboard.route
 
     val startDestination = if (isLoggedIn) Screen.Dashboard.route else Screen.Login.route
 
     Scaffold(
+        containerColor = if (showBottomBar) DashboardColors.ShellMid else MaterialTheme.colorScheme.background,
+        // Only reserve top (status bar) inset here. Tab screens' own FloatingBottomNavBar
+        // already handles the bottom/navigation-bar inset itself; routes with no bottom
+        // bar (auth screens, forms) are left free to paint their own content — including
+        // edge-to-edge decorative art — all the way to the true bottom edge.
+        contentWindowInsets = WindowInsets.statusBars,
         bottomBar = {
             if (showBottomBar) {
-                NavigationBar(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                    tonalElevation = androidx.compose.ui.unit.Dp(3f)
-                ) {
-                    bottomNavItems.forEach { item ->
-                        val selected = currentDestination?.hierarchy?.any {
-                            it.route == item.screen.route
-                        } == true
-                        NavigationBarItem(
-                            selected = selected,
-                            onClick = {
-                                navController.navigate(item.screen.route) {
-                                    popUpTo(navController.graph.findStartDestination().id) {
-                                        saveState = true
-                                    }
-                                    launchSingleTop = true
-                                    restoreState = true
-                                }
-                            },
-                            icon = {
-                                Icon(
-                                    imageVector = item.icon,
-                                    contentDescription = item.label
-                                )
-                            },
-                            label = { Text(item.label, style = MaterialTheme.typography.labelSmall) },
-                            colors = NavigationBarItemDefaults.colors(
-                                selectedIconColor = MaterialTheme.colorScheme.primary,
-                                selectedTextColor = MaterialTheme.colorScheme.primary,
-                                indicatorColor = MaterialTheme.colorScheme.primaryContainer
-                            )
-                        )
+                FloatingBottomNavBar(
+                    items = bottomNavItems,
+                    isSelected = { screen ->
+                        bottomNavItems.indexOfFirst { it.screen == screen } == pagerState.currentPage
+                    },
+                    onItemClick = { screen ->
+                        val index = bottomNavItems.indexOfFirst { it.screen == screen }
+                        if (index >= 0) {
+                            tabScope.launch { pagerState.animateScrollToPage(index) }
+                        }
                     }
-                }
+                )
             }
         }
     ) { innerPadding ->
@@ -149,33 +135,37 @@ fun CocoBizNavGraph(isLoggedIn: Boolean = false) {
                 )
             }
 
-            // ── Main app screens ──────────────────────────────────────
+            // ── Main app tabs (swipeable) ──────────────────────────────
             composable(Screen.Dashboard.route) {
-                DashboardScreen(
-                    onAddSale = { navController.navigate(Screen.AddSale.route) },
-                    onEditSale = { saleId -> navController.navigate(Screen.EditSale.createRoute(saleId)) }
-                )
-            }
-            composable(Screen.Dealers.route) {
-                DealersScreen(
-                    onAddDealer = { navController.navigate(Screen.AddDealer.route) },
-                    onDealerClick = { dealerId -> navController.navigate(Screen.DealerProfile.createRoute(dealerId)) },
-                    onEditDealer = { dealerId -> navController.navigate(Screen.EditDealer.createRoute(dealerId)) }
-                )
-            }
-            composable(Screen.Reports.route) {
-                ReportsScreen()
-            }
-            composable(Screen.Settings.route) {
-                SettingsScreen(
-                    onNavigateToProfile = { navController.navigate(Screen.BusinessProfile.route) },
-                    onNavigateToBackup = { navController.navigate(Screen.BackupRestore.route) },
-                    onLogout = {
-                        navController.navigate(Screen.Login.route) {
-                            popUpTo(0) { inclusive = true }
-                        }
+                HorizontalPager(
+                    state = pagerState,
+                    modifier = Modifier.fillMaxSize()
+                ) { page ->
+                    when (page) {
+                        0 -> DashboardScreen(
+                            onAddSale = { navController.navigate(Screen.AddSale.route) },
+                            onEditSale = { saleId -> navController.navigate(Screen.EditSale.createRoute(saleId)) },
+                            onNavigateToDealers = { tabScope.launch { pagerState.animateScrollToPage(1) } },
+                            onNavigateToReports = { tabScope.launch { pagerState.animateScrollToPage(2) } },
+                            onNavigateToSettings = { tabScope.launch { pagerState.animateScrollToPage(3) } }
+                        )
+                        1 -> DealersScreen(
+                            onAddDealer = { navController.navigate(Screen.AddDealer.route) },
+                            onDealerClick = { dealerId -> navController.navigate(Screen.DealerProfile.createRoute(dealerId)) },
+                            onEditDealer = { dealerId -> navController.navigate(Screen.EditDealer.createRoute(dealerId)) }
+                        )
+                        2 -> ReportsScreen()
+                        3 -> SettingsScreen(
+                            onNavigateToProfile = { navController.navigate(Screen.BusinessProfile.route) },
+                            onNavigateToBackup = { navController.navigate(Screen.BackupRestore.route) },
+                            onLogout = {
+                                navController.navigate(Screen.Login.route) {
+                                    popUpTo(0) { inclusive = true }
+                                }
+                            }
+                        )
                     }
-                )
+                }
             }
             composable(Screen.AddSale.route) {
                 AddSaleScreen(onNavigateBack = { navController.popBackStack() })

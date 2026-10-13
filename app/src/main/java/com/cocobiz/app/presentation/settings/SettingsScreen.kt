@@ -1,64 +1,66 @@
 package com.cocobiz.app.presentation.settings
 
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Logout
+import androidx.compose.material.icons.automirrored.filled.NavigateNext
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Backup
 import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.Email
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.Logout
-import androidx.compose.material.icons.filled.NavigateNext
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Sms
 import androidx.compose.material.icons.filled.Timer
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.cocobiz.app.R
 import com.cocobiz.app.domain.model.DarkModeOption
-import com.cocobiz.app.ui.components.CocoBizTopBar
 import com.cocobiz.app.ui.components.ConfirmationDialog
-import kotlinx.coroutines.delay
+import com.cocobiz.app.ui.theme.SettingsColors
 
 @Composable
 fun SettingsScreen(
@@ -69,6 +71,7 @@ fun SettingsScreen(
 ) {
     val settings by viewModel.settings.collectAsStateWithLifecycle()
     val reminder by viewModel.reminder.collectAsStateWithLifecycle()
+    val profile by viewModel.profile.collectAsStateWithLifecycle()
     var showLogoutDialog by remember { mutableStateOf(false) }
 
     if (showLogoutDialog) {
@@ -87,225 +90,92 @@ fun SettingsScreen(
     }
 
     Scaffold(
-        topBar = { CocoBizTopBar(title = "Settings") }
+        containerColor = SettingsColors.PageBackground,
+        // The outer NavGraph Scaffold already reserves the status-bar/nav-bar insets.
+        contentWindowInsets = WindowInsets(0, 0, 0, 0)
     ) { innerPadding ->
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding),
-            contentPadding = PaddingValues(16.dp),
+            contentPadding = PaddingValues(bottom = 16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // ── Account (section 0) ───────────────────────────────────
+            item { SettingsHeader() }
+
             item {
-                AnimatedSettingsSection(animDelay = 60) {
-                    SettingsSection(title = "Account") {
-                        SettingsNavigationItem(
-                            icon = Icons.Default.AccountCircle,
-                            title = "Business Profile",
-                            subtitle = "View & edit your business information",
-                            onClick = onNavigateToProfile
-                        )
-                        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                ProfileCard(
+                    name = profile?.ownerName?.ifBlank { null } ?: "Your Profile",
+                    subtitle = listOfNotNull(
+                        profile?.businessName?.ifBlank { null } ?: "Business Owner",
+                        profile?.city?.ifBlank { null }
+                    ).joinToString(" • "),
+                    phone = profile?.phone.orEmpty(),
+                    onClick = onNavigateToProfile,
+                    modifier = Modifier.padding(horizontal = 16.dp)
+                )
+            }
+
+            item {
+                SettingsSectionCard(
+                    title = "Account",
+                    subtitle = "Manage your account",
+                    modifier = Modifier.padding(horizontal = 16.dp)
+                ) {
+                    SettingsNavRow(
+                        icon = Icons.Default.AccountCircle,
+                        iconBackground = SettingsColors.Green50,
+                        iconTint = SettingsColors.Green700,
+                        title = "Business Profile",
+                        subtitle = "View & edit your business information",
+                        onClick = onNavigateToProfile
+                    )
+                    SettingsNavRow(
+                        icon = Icons.AutoMirrored.Filled.Logout,
+                        iconBackground = SettingsColors.Red50,
+                        iconTint = SettingsColors.Red500,
+                        title = "Logout",
+                        titleColor = SettingsColors.Red500,
+                        subtitle = "Sign out of your account",
+                        onClick = { showLogoutDialog = true }
+                    )
+                }
+            }
+
+            item {
+                SettingsSectionCard(
+                    title = "Notifications",
+                    subtitle = "Stay updated always",
+                    modifier = Modifier.padding(horizontal = 16.dp)
+                ) {
+                    SettingsSwitchRow(
+                        icon = Icons.Default.Notifications,
+                        iconBackground = SettingsColors.Green50,
+                        iconTint = SettingsColors.Green700,
+                        title = "Enable Notifications",
+                        subtitle = "Receive sale reminders and important updates",
+                        checked = settings.notificationEnabled,
+                        onCheckedChange = viewModel::updateNotificationEnabled
+                    )
+                    Column(modifier = Modifier.padding(top = 4.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            IconTile(icon = Icons.Default.Timer, background = SettingsColors.Blue50, tint = SettingsColors.Blue500)
+                            Column {
+                                Text("Reminder Days Before", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = SettingsColors.Gray900)
+                                Text("Notify before the selected number of days", fontSize = 11.sp, color = SettingsColors.Gray400)
+                            }
+                        }
+                        Spacer(Modifier.height(10.dp))
                         Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { showLogoutDialog = true }
-                                .padding(vertical = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                Icons.Default.Logout,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.error,
-                                modifier = Modifier.size(20.dp)
-                            )
-                            Spacer(Modifier.padding(horizontal = 8.dp))
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    "Logout",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    fontWeight = FontWeight.Medium,
-                                    color = MaterialTheme.colorScheme.error
-                                )
-                                Text(
-                                    "Sign out of your account",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-
-            // ── Notifications (section 1) ─────────────────────────────
-            item {
-                AnimatedSettingsSection(animDelay = 120) {
-                    SettingsSection(title = "Notifications") {
-                        SettingsSwitchItem(
-                            icon = Icons.Default.Notifications,
-                            title = "Enable Notifications",
-                            subtitle = "Receive sale reminders",
-                            checked = settings.notificationEnabled,
-                            onCheckedChange = viewModel::updateNotificationEnabled
-                        )
-                        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-                        Column {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    Icons.Default.Timer,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                                Spacer(Modifier.padding(horizontal = 8.dp))
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        "Reminder Days Before",
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        fontWeight = FontWeight.Medium
-                                    )
-                                    Text(
-                                        "Notify ${settings.reminderDays} days before due",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-                            }
-                            Spacer(Modifier.height(8.dp))
-                            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                items(listOf(3, 5, 7, 10, 14)) { days ->
-                                    FilterChip(
-                                        selected = settings.reminderDays == days,
-                                        onClick = { viewModel.updateReminderDays(days) },
-                                        label = { Text("$days days") }
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            // ── Cloud Reminders (section 2) ───────────────────────────
-            item {
-                AnimatedSettingsSection(animDelay = 180) {
-                    SettingsSection(title = "Cloud Reminders") {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                Icons.Default.Cloud,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(20.dp)
-                            )
-                            Spacer(Modifier.padding(horizontal = 8.dp))
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    "Reminder Channel",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    fontWeight = FontWeight.Medium
-                                )
-                                Text(
-                                    "How you receive harvesting reminders",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
-                        Spacer(Modifier.height(8.dp))
-                        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            items(listOf("EMAIL", "WHATSAPP", "BOTH", "NONE")) { ch ->
-                                FilterChip(
-                                    selected = reminder.channel == ch,
-                                    onClick = { viewModel.setReminderChannel(ch) },
-                                    label = { Text(ch.lowercase().replaceFirstChar { it.uppercase() }) }
-                                )
-                            }
-                        }
-                        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                Icons.Default.Timer,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(20.dp)
-                            )
-                            Spacer(Modifier.padding(horizontal = 8.dp))
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    "Reminder Frequency",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    fontWeight = FontWeight.Medium
-                                )
-                                Text(
-                                    "How often reminders are sent",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
-                        Spacer(Modifier.height(8.dp))
-                        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            items(listOf("HOURLY", "DAILY", "WEEKLY", "MONTHLY")) { freq ->
-                                FilterChip(
-                                    selected = reminder.frequency == freq,
-                                    onClick = { viewModel.setReminderFrequency(freq) },
-                                    label = { Text(freq.lowercase().replaceFirstChar { it.uppercase() }) }
-                                )
-                            }
-                        }
-                        Spacer(Modifier.height(12.dp))
-                        Button(
-                            onClick = viewModel::saveReminder,
-                            enabled = !reminder.isSaving,
                             modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(12.dp)
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            if (reminder.isSaving) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(16.dp),
-                                    strokeWidth = 2.dp,
-                                    color = androidx.compose.ui.graphics.Color.White
-                                )
-                                Spacer(Modifier.padding(horizontal = 4.dp))
-                                Text("Saving…")
-                            } else if (reminder.savedOk) {
-                                Text("Saved!")
-                            } else {
-                                Text("Save Reminder Settings", fontWeight = FontWeight.SemiBold)
-                            }
-                        }
-                    }
-                }
-            }
-
-            // ── Appearance (section 3) ────────────────────────────────
-            item {
-                AnimatedSettingsSection(animDelay = 240) {
-                    SettingsSection(title = "Appearance") {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                Icons.Default.DarkMode,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(20.dp)
-                            )
-                            Spacer(Modifier.padding(horizontal = 8.dp))
-                            Text(
-                                "Theme",
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = FontWeight.Medium,
-                                modifier = Modifier.weight(1f)
-                            )
-                        }
-                        Spacer(Modifier.height(8.dp))
-                        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            items(DarkModeOption.entries) { mode ->
-                                FilterChip(
-                                    selected = settings.darkMode == mode,
-                                    onClick = { viewModel.updateDarkMode(mode) },
-                                    label = { Text(mode.displayName) }
+                            listOf(3, 5, 7, 10).forEach { d ->
+                                DayPill(
+                                    label = "$d days",
+                                    selected = settings.reminderDays == d,
+                                    onClick = { viewModel.updateReminderDays(d) },
+                                    modifier = Modifier.weight(1f)
                                 )
                             }
                         }
@@ -313,139 +183,337 @@ fun SettingsScreen(
                 }
             }
 
-            // ── Data (section 4) ─────────────────────────────────────
             item {
-                AnimatedSettingsSection(animDelay = 300) {
-                    SettingsSection(title = "Data") {
-                        SettingsNavigationItem(
-                            icon = Icons.Default.Backup,
-                            title = "Backup & Restore",
-                            subtitle = "Backup data and sync to cloud",
-                            onClick = onNavigateToBackup
-                        )
+                SettingsSectionCard(
+                    title = "Cloud Reminders",
+                    subtitle = "Choose how you get notified",
+                    modifier = Modifier.padding(horizontal = 16.dp)
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        IconTile(icon = Icons.Default.Cloud, background = SettingsColors.Blue50, tint = SettingsColors.Blue400)
+                        Column {
+                            Text("Reminder Channel", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = SettingsColors.Gray900)
+                            Text("How you receive harvesting reminders", fontSize = 11.sp, color = SettingsColors.Gray400)
+                        }
                     }
+                    ChannelRow(
+                        icon = Icons.Default.Sms,
+                        iconBackground = SettingsColors.Green50,
+                        iconTint = SettingsColors.Green600,
+                        title = "WhatsApp",
+                        subtitle = "Get notified via WhatsApp",
+                        selected = reminder.channel == "WHATSAPP",
+                        onClick = { viewModel.selectAndSaveReminderChannel("WHATSAPP") }
+                    )
+                    ChannelRow(
+                        icon = Icons.Default.Email,
+                        iconBackground = SettingsColors.Blue50,
+                        iconTint = SettingsColors.Blue500,
+                        title = "Email",
+                        subtitle = "Get notified via Email",
+                        selected = reminder.channel == "EMAIL",
+                        onClick = { viewModel.selectAndSaveReminderChannel("EMAIL") }
+                    )
+                    ChannelRow(
+                        icon = Icons.Default.Sms,
+                        iconBackground = SettingsColors.Purple50,
+                        iconTint = SettingsColors.Purple500,
+                        title = "SMS",
+                        subtitle = "Get notified via SMS",
+                        selected = reminder.channel == "SMS",
+                        onClick = { viewModel.selectAndSaveReminderChannel("SMS") }
+                    )
                 }
             }
 
-            // ── About (section 5) ─────────────────────────────────────
             item {
-                AnimatedSettingsSection(animDelay = 360) {
-                    SettingsSection(title = "About") {
-                        SettingsInfoItem(
-                            icon = Icons.Default.Info,
-                            title = "CocoBiz",
-                            subtitle = "Version 1.0.0 — Coconut Sales Manager"
-                        )
-                    }
+                SettingsSectionCard(
+                    title = "App Preferences",
+                    subtitle = "Customize your experience",
+                    modifier = Modifier.padding(horizontal = 16.dp)
+                ) {
+                    SettingsSwitchRow(
+                        icon = Icons.Default.DarkMode,
+                        iconBackground = SettingsColors.Indigo50,
+                        iconTint = SettingsColors.Indigo500,
+                        title = "Dark Mode",
+                        subtitle = "Switch between light and dark theme",
+                        checked = settings.darkMode == DarkModeOption.DARK,
+                        onCheckedChange = { viewModel.updateDarkMode(if (it) DarkModeOption.DARK else DarkModeOption.LIGHT) }
+                    )
+                    SettingsNavRow(
+                        icon = Icons.Default.Backup,
+                        iconBackground = SettingsColors.Blue50,
+                        iconTint = SettingsColors.Blue500,
+                        title = "Backup & Restore",
+                        subtitle = "Backup data and sync to cloud",
+                        onClick = onNavigateToBackup
+                    )
                 }
+            }
+
+            item {
+                Text(
+                    "CocoBiz — Version 1.0.0",
+                    fontSize = 12.sp,
+                    color = SettingsColors.Gray400,
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                )
             }
         }
     }
 }
 
 @Composable
-private fun AnimatedSettingsSection(animDelay: Int, content: @Composable () -> Unit) {
-    var visible by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) { delay(animDelay.toLong()); visible = true }
-    val progress by animateFloatAsState(
-        targetValue = if (visible) 1f else 0f,
-        animationSpec = tween(durationMillis = 320, easing = FastOutSlowInEasing),
-        label = "settingsSection"
-    )
-    androidx.compose.foundation.layout.Box(
-        modifier = Modifier.graphicsLayer {
-            alpha = progress
-            translationY = 20.dp.toPx() * (1f - progress)
-        }
+private fun SettingsHeader() {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp, vertical = 8.dp)
     ) {
-        content()
-    }
-}
-
-@Composable
-private fun SettingsSection(
-    title: String,
-    content: @Composable () -> Unit
-) {
-    Card(
-        shape = RoundedCornerShape(20.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column(modifier = Modifier.width(200.dp)) {
+            Text("Settings", fontSize = 28.sp, fontWeight = FontWeight.ExtraBold, color = SettingsColors.Gray900)
             Text(
-                text = title,
-                style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary
+                "Manage your account and\napp preferences",
+                fontSize = 13.sp,
+                color = SettingsColors.Gray500,
+                lineHeight = 17.sp,
+                modifier = Modifier.padding(top = 2.dp)
             )
-            Spacer(Modifier.height(12.dp))
-            content()
+        }
+        Text(
+            "Grow\nTogether",
+            fontSize = 13.sp,
+            fontStyle = FontStyle.Italic,
+            fontWeight = FontWeight.Bold,
+            color = SettingsColors.Green800,
+            lineHeight = 15.sp,
+            modifier = Modifier.align(Alignment.TopEnd).padding(top = 4.dp, end = 36.dp)
+        )
+        Image(
+            painter = painterResource(R.drawable.ic_dashboard_hero),
+            contentDescription = null,
+            contentScale = ContentScale.Fit,
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .size(width = 110.dp, height = 90.dp)
+        )
+    }
+}
+
+@Composable
+private fun ProfileCard(
+    name: String,
+    subtitle: String,
+    phone: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        shape = RoundedCornerShape(16.dp),
+        color = SettingsColors.White,
+        shadowElevation = 1.dp,
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .clickable(onClick = onClick)
+    ) {
+        Row(
+            modifier = Modifier.padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(CircleShape)
+                    .background(SettingsColors.Green800),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(name.take(1).uppercase(), fontSize = 20.sp, fontWeight = FontWeight.Bold, color = SettingsColors.White)
+            }
+            Column(modifier = Modifier.weight(1f)) {
+                Text(name, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = SettingsColors.Gray900)
+                Text(subtitle, fontSize = 13.sp, color = SettingsColors.Gray500)
+                if (phone.isNotBlank()) {
+                    Text(phone, fontSize = 13.sp, color = SettingsColors.Gray500)
+                }
+            }
+            Icon(Icons.AutoMirrored.Filled.NavigateNext, contentDescription = null, tint = SettingsColors.Gray400, modifier = Modifier.size(20.dp))
         }
     }
 }
 
 @Composable
-private fun SettingsNavigationItem(
-    icon: ImageVector,
+private fun SettingsSectionCard(
     title: String,
     subtitle: String,
-    onClick: () -> Unit
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit
+) {
+    Surface(
+        shape = RoundedCornerShape(16.dp),
+        color = SettingsColors.White,
+        shadowElevation = 1.dp,
+        modifier = modifier.fillMaxWidth()
+    ) {
+        Column {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(title, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = SettingsColors.Green800)
+                Text(subtitle, fontSize = 11.sp, color = SettingsColors.Gray400)
+            }
+            Column(
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                content()
+            }
+        }
+    }
+}
+
+@Composable
+private fun IconTile(icon: ImageVector, background: Color, tint: Color) {
+    Box(
+        modifier = Modifier
+            .size(36.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(background),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(18.dp))
+    }
+}
+
+@Composable
+private fun SettingsNavRow(
+    icon: ImageVector,
+    iconBackground: Color,
+    iconTint: Color,
+    title: String,
+    subtitle: String,
+    onClick: () -> Unit,
+    titleColor: Color = SettingsColors.Gray900
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically
+            .clip(RoundedCornerShape(12.dp))
+            .clickable(onClick = onClick),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
-        Spacer(Modifier.padding(horizontal = 8.dp))
+        IconTile(icon, iconBackground, iconTint)
         Column(modifier = Modifier.weight(1f)) {
-            Text(title, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
-            Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(title, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = titleColor)
+            Text(subtitle, fontSize = 11.sp, color = SettingsColors.Gray400)
         }
-        Icon(Icons.Default.NavigateNext, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        Icon(Icons.AutoMirrored.Filled.NavigateNext, contentDescription = null, tint = SettingsColors.Gray400, modifier = Modifier.size(16.dp))
     }
 }
 
 @Composable
-private fun SettingsSwitchItem(
+private fun SettingsSwitchRow(
     icon: ImageVector,
+    iconBackground: Color,
+    iconTint: Color,
     title: String,
     subtitle: String,
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
-        Spacer(Modifier.padding(horizontal = 8.dp))
+        IconTile(icon, iconBackground, iconTint)
         Column(modifier = Modifier.weight(1f)) {
-            Text(title, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
-            Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(title, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = SettingsColors.Gray900)
+            Text(subtitle, fontSize = 11.sp, color = SettingsColors.Gray400)
         }
-        Switch(checked = checked, onCheckedChange = onCheckedChange)
+        Switch(
+            checked = checked,
+            onCheckedChange = onCheckedChange,
+            colors = SwitchDefaults.colors(checkedTrackColor = SettingsColors.Green600)
+        )
     }
 }
 
 @Composable
-private fun SettingsInfoItem(
+private fun ChannelRow(
     icon: ImageVector,
+    iconBackground: Color,
+    iconTint: Color,
     title: String,
-    subtitle: String
+    subtitle: String,
+    selected: Boolean,
+    onClick: () -> Unit
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .clickable(onClick = onClick),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
-        Spacer(Modifier.padding(horizontal = 8.dp))
+        IconTile(icon, iconBackground, iconTint)
         Column(modifier = Modifier.weight(1f)) {
-            Text(title, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
-            Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(title, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = SettingsColors.Gray900)
+            Text(subtitle, fontSize = 11.sp, color = SettingsColors.Gray400)
         }
+        RadioDot(selected = selected)
+    }
+}
+
+@Composable
+private fun RadioDot(selected: Boolean) {
+    Box(
+        modifier = Modifier
+            .size(20.dp)
+            .clip(CircleShape)
+            .border(2.dp, if (selected) SettingsColors.Green700 else SettingsColors.Gray100, CircleShape),
+        contentAlignment = Alignment.Center
+    ) {
+        if (selected) {
+            Box(
+                modifier = Modifier
+                    .size(10.dp)
+                    .clip(CircleShape)
+                    .background(SettingsColors.Green700)
+            )
+        }
+    }
+}
+
+@Composable
+private fun DayPill(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        shape = RoundedCornerShape(50),
+        color = if (selected) SettingsColors.Green700 else SettingsColors.White,
+        border = BorderStroke(1.dp, if (selected) SettingsColors.Green700 else SettingsColors.Gray100),
+        modifier = modifier.clip(RoundedCornerShape(50)).clickable(onClick = onClick)
+    ) {
+        Text(
+            label,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.Medium,
+            color = if (selected) SettingsColors.White else SettingsColors.Gray500,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+            modifier = Modifier.fillMaxWidth().padding(vertical = 7.dp)
+        )
     }
 }

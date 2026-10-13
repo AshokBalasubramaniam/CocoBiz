@@ -8,6 +8,7 @@ import android.graphics.Paint
 import android.graphics.Rect
 import android.graphics.Typeface
 import android.graphics.pdf.PdfDocument
+import android.net.Uri
 import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
@@ -40,8 +41,14 @@ object PdfExporter {
 
             val timestamp = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"))
             val fileName = "CocoBiz_Report_$timestamp.pdf"
-            savePdf(context, pdfDocument, fileName)
+            val savedUri = savePdf(context, pdfDocument, fileName)
             pdfDocument.close()
+            NotificationUtils.showDownloadCompleteNotification(
+                context = context,
+                notificationId = fileName.hashCode(),
+                fileName = fileName,
+                fileUri = savedUri
+            )
             true
         } catch (e: Exception) {
             e.printStackTrace()
@@ -210,7 +217,7 @@ object PdfExporter {
         canvas.drawText(pageLabel, PAGE_WIDTH - MARGIN - pageLabelWidth, PAGE_HEIGHT - 24f, footerPaint)
     }
 
-    private fun savePdf(context: Context, pdfDocument: PdfDocument, fileName: String) {
+    private fun savePdf(context: Context, pdfDocument: PdfDocument, fileName: String): Uri? {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             val contentValues = ContentValues().apply {
                 put(MediaStore.Downloads.DISPLAY_NAME, fileName)
@@ -224,6 +231,7 @@ object PdfExporter {
             context.contentResolver.openOutputStream(uri)?.use { stream ->
                 pdfDocument.writeTo(stream)
             }
+            return uri
         } else {
             @Suppress("DEPRECATION")
             val dir = File(
@@ -235,6 +243,9 @@ object PdfExporter {
             FileOutputStream(file).use { stream ->
                 pdfDocument.writeTo(stream)
             }
+            // Public Downloads dir isn't covered by this app's FileProvider paths,
+            // so there's no shareable content:// Uri to hand back pre-Android 10.
+            return null
         }
     }
 }

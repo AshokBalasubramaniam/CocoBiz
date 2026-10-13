@@ -2,23 +2,40 @@ package com.cocobiz.app.presentation.auth
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Login
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -26,14 +43,14 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.cocobiz.app.R
-import com.cocobiz.app.ui.theme.GradientGreenEnd
-import com.cocobiz.app.ui.theme.GradientGreenStart
+import com.cocobiz.app.ui.components.FormInput
+import com.cocobiz.app.ui.theme.DashboardColors
+import com.cocobiz.app.ui.theme.FigmaColors
 
 @Composable
 fun LoginScreen(
@@ -48,141 +65,135 @@ fun LoginScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-            .verticalScroll(rememberScrollState())
-            .systemBarsPadding()
+            .background(FigmaColors.White)
     ) {
-        // Header gradient
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(220.dp)
-                .background(Brush.linearGradient(listOf(GradientGreenStart, GradientGreenEnd))),
-            contentAlignment = Alignment.Center
-        ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Image(
-                    painter = painterResource(R.drawable.ic_app_logo),
-                    contentDescription = "CocoBiz",
-                    modifier = Modifier
-                        .size(80.dp)
-                        .clip(RoundedCornerShape(20.dp)),
-                    contentScale = ContentScale.Fit
-                )
-                Spacer(Modifier.height(8.dp))
-                Text(
-                    "CocoBiz",
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = Color.White
-                )
-                Text(
-                    "Coconut Sales Manager",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Color.White.copy(alpha = 0.85f)
-                )
-            }
-        }
+        Image(
+            painter = painterResource(R.drawable.bg_login_top),
+            contentDescription = null,
+            contentScale = ContentScale.FillWidth,
+            modifier = Modifier.fillMaxWidth()
+        )
 
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 24.dp)
-                .padding(top = 32.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+                .padding(horizontal = 20.dp)
+                .padding(top = 18.dp, bottom = 18.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            Text(
-                "Sign In",
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold
-            )
+            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
+                Text("Welcome Back!", fontSize = 24.sp, fontWeight = FontWeight.ExtraBold, color = FigmaColors.Gray900)
+                Text("Sign in to continue to CocoBiz", fontSize = 13.sp, color = FigmaColors.Gray500)
+            }
 
-            OutlinedTextField(
+            Spacer(Modifier.height(4.dp))
+
+            FormInput(
                 value = state.username,
                 onValueChange = viewModel::onUsernameChange,
-                label = { Text("Username") },
-                leadingIcon = { Icon(Icons.Default.Person, null) },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(14.dp),
-                keyboardOptions = KeyboardOptions(
-                    keyboardType = KeyboardType.Text,
-                    imeAction = ImeAction.Next
-                )
+                placeholder = "Username",
+                leadingIcon = { RoundIconBadge(Icons.Default.Person) },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text, imeAction = ImeAction.Next)
             )
 
-            OutlinedTextField(
+            FormInput(
                 value = state.password,
                 onValueChange = viewModel::onPasswordChange,
-                label = { Text("Password") },
-                leadingIcon = { Icon(Icons.Default.Lock, null) },
+                placeholder = "Password",
+                leadingIcon = { RoundIconBadge(Icons.Default.Lock) },
                 trailingIcon = {
-                    IconButton(onClick = { passwordVisible = !passwordVisible }) {
-                        Icon(
-                            if (passwordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                            contentDescription = if (passwordVisible) "Hide" else "Show"
-                        )
-                    }
+                    Icon(
+                        if (passwordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                        contentDescription = if (passwordVisible) "Hide password" else "Show password",
+                        tint = FigmaColors.Gray400,
+                        modifier = Modifier
+                            .size(18.dp)
+                            .clickable { passwordVisible = !passwordVisible }
+                    )
                 },
-                singleLine = true,
                 visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(14.dp),
-                keyboardOptions = KeyboardOptions(
-                    keyboardType = KeyboardType.Password,
-                    imeAction = ImeAction.Done
-                )
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done)
             )
 
             TextButton(
                 onClick = onNavigateToForgotPassword,
                 modifier = Modifier.align(Alignment.End)
             ) {
-                Text("Forgot Password?", color = MaterialTheme.colorScheme.primary)
+                Text("Forgot Password?", color = FigmaColors.Green600, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
             }
 
             if (state.error != null) {
-                Text(
-                    state.error!!,
-                    color = MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.bodySmall,
-                    modifier = Modifier.fillMaxWidth()
-                )
+                Text(state.error!!, color = FigmaColors.Red600, fontSize = 12.sp, modifier = Modifier.fillMaxWidth())
             }
 
-            Button(
+            GreenGradientButton(
+                text = if (state.isLoading) "Signing in..." else "Login",
                 onClick = { viewModel.login(onLoginSuccess) },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(52.dp),
                 enabled = !state.isLoading,
-                shape = RoundedCornerShape(14.dp)
-            ) {
-                if (state.isLoading) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(20.dp),
-                        color = Color.White,
-                        strokeWidth = 2.dp
-                    )
-                } else {
-                    Text("Login", fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+                icon = {
+                    if (state.isLoading) {
+                        CircularProgressIndicator(modifier = Modifier.size(18.dp), color = FigmaColors.White, strokeWidth = 2.dp)
+                    } else {
+                        Icon(Icons.AutoMirrored.Filled.Login, contentDescription = null, tint = FigmaColors.White, modifier = Modifier.size(18.dp))
+                    }
                 }
-            }
+            )
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    "Don't have an account?",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                Text("Don't have an account?", fontSize = 13.sp, color = FigmaColors.Gray500)
                 TextButton(onClick = onNavigateToRegister) {
-                    Text("Create Account", fontWeight = FontWeight.SemiBold)
+                    Text("Create Account", fontWeight = FontWeight.Bold, color = FigmaColors.Green600, fontSize = 13.sp)
                 }
             }
+        }
+
+        Image(
+            painter = painterResource(R.drawable.bg_login_bottom),
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f)
+        )
+    }
+}
+
+@Composable
+private fun RoundIconBadge(icon: androidx.compose.ui.graphics.vector.ImageVector) {
+    Box(
+        modifier = Modifier
+            .size(28.dp)
+            .clip(CircleShape)
+            .background(FigmaColors.Green100),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(icon, contentDescription = null, tint = FigmaColors.Green800, modifier = Modifier.size(16.dp))
+    }
+}
+
+@Composable
+private fun GreenGradientButton(
+    text: String,
+    onClick: () -> Unit,
+    enabled: Boolean,
+    icon: @Composable () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(56.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .background(Brush.horizontalGradient(listOf(DashboardColors.BannerGradientStart, DashboardColors.BannerGradientEnd)))
+            .then(if (enabled) Modifier.clickable(onClick = onClick) else Modifier),
+        contentAlignment = Alignment.Center
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            icon()
+            Text(text, color = FigmaColors.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
         }
     }
 }

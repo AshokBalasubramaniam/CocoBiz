@@ -1,23 +1,56 @@
 package com.cocobiz.app.presentation.auth
 
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.filled.Business
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Phone
+import androidx.compose.material.icons.filled.PersonAdd
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.*
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.cocobiz.app.ui.components.CocoBizTopBar
+import com.cocobiz.app.ui.components.FormInput
+import com.cocobiz.app.ui.components.PrimaryButton
+import com.cocobiz.app.ui.components.SectionCard
+import com.cocobiz.app.ui.theme.FigmaColors
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -30,31 +63,12 @@ fun RegisterScreen(
     var passwordVisible by remember { mutableStateOf(false) }
     var confirmVisible by remember { mutableStateOf(false) }
 
-    // Show success dialog when registration completes
     if (state.isSuccess) {
         AlertDialog(
             onDismissRequest = { onRegisterSuccess() },
-            icon = {
-                Icon(
-                    Icons.Default.CheckCircle,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(48.dp)
-                )
-            },
-            title = {
-                Text(
-                    "Account Created!",
-                    fontWeight = FontWeight.Bold,
-                    style = MaterialTheme.typography.titleLarge
-                )
-            },
-            text = {
-                Text(
-                    "Your account has been created successfully. Please sign in with your new credentials.",
-                    style = MaterialTheme.typography.bodyMedium
-                )
-            },
+            icon = { Icon(Icons.Default.CheckCircle, contentDescription = null, tint = FigmaColors.Green600, modifier = Modifier.size(48.dp)) },
+            title = { Text("Account Created!", fontWeight = FontWeight.Bold, fontSize = 20.sp) },
+            text = { Text("Your account has been created successfully. Please sign in with your new credentials.", fontSize = 14.sp) },
             confirmButton = {
                 Button(
                     onClick = { onRegisterSuccess() },
@@ -69,166 +83,151 @@ fun RegisterScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Create Account", fontWeight = FontWeight.Bold) },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateToLogin) {
-                        Icon(Icons.Default.ArrowBack, "Back")
-                    }
-                }
+            CocoBizTopBar(
+                title = "Create Account",
+                onNavigateBack = onNavigateToLogin
             )
         }
     ) { innerPadding ->
-        Column(
+        LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding)
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 24.dp, vertical = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
+                .padding(innerPadding),
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Text(
-                "Account Details",
-                style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary
-            )
+            item {
+                SectionCard(
+                    icon = { Icon(Icons.Default.Lock, contentDescription = null, tint = FigmaColors.Blue600, modifier = Modifier.size(18.dp)) },
+                    iconBackground = FigmaColors.Blue100,
+                    title = "Account Details",
+                    titleColor = FigmaColors.Blue700,
+                    subtitle = "Choose your login credentials",
+                    subtitleColor = FigmaColors.Blue400,
+                    bannerColor = FigmaColors.Blue50,
+                    borderColor = FigmaColors.Blue100
+                ) {
+                    FormInput(
+                        value = state.username,
+                        onValueChange = viewModel::onUsernameChange,
+                        placeholder = "Username *",
+                        leadingIcon = { Icon(Icons.Default.Person, contentDescription = null, tint = FigmaColors.Gray400, modifier = Modifier.size(18.dp)) },
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next)
+                    )
+                    Text("Lowercase letters only, min 3 characters", fontSize = 11.sp, color = FigmaColors.Gray400)
 
-            OutlinedTextField(
-                value = state.username,
-                onValueChange = viewModel::onUsernameChange,
-                label = { Text("Username *") },
-                leadingIcon = { Icon(Icons.Default.Person, null) },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(14.dp),
-                supportingText = { Text("Lowercase letters only, min 3 chars") },
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next)
-            )
+                    FormInput(
+                        value = state.password,
+                        onValueChange = viewModel::onPasswordChange,
+                        placeholder = "Password *",
+                        leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null, tint = FigmaColors.Gray400, modifier = Modifier.size(18.dp)) },
+                        trailingIcon = {
+                            Icon(
+                                if (passwordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                contentDescription = if (passwordVisible) "Hide password" else "Show password",
+                                tint = FigmaColors.Gray400,
+                                modifier = Modifier.size(18.dp).clickable { passwordVisible = !passwordVisible }
+                            )
+                        },
+                        visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Next)
+                    )
+                    Text("Minimum 6 characters", fontSize = 11.sp, color = FigmaColors.Gray400)
 
-            OutlinedTextField(
-                value = state.password,
-                onValueChange = viewModel::onPasswordChange,
-                label = { Text("Password *") },
-                leadingIcon = { Icon(Icons.Default.Lock, null) },
-                trailingIcon = {
-                    IconButton(onClick = { passwordVisible = !passwordVisible }) {
-                        Icon(if (passwordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility, null)
-                    }
-                },
-                singleLine = true,
-                visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(14.dp),
-                supportingText = { Text("Min 6 characters") },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Next)
-            )
+                    FormInput(
+                        value = state.confirmPassword,
+                        onValueChange = viewModel::onConfirmPasswordChange,
+                        placeholder = "Confirm Password *",
+                        leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null, tint = FigmaColors.Gray400, modifier = Modifier.size(18.dp)) },
+                        trailingIcon = {
+                            Icon(
+                                if (confirmVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                contentDescription = if (confirmVisible) "Hide password" else "Show password",
+                                tint = FigmaColors.Gray400,
+                                modifier = Modifier.size(18.dp).clickable { confirmVisible = !confirmVisible }
+                            )
+                        },
+                        visualTransformation = if (confirmVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Next)
+                    )
+                }
+            }
 
-            OutlinedTextField(
-                value = state.confirmPassword,
-                onValueChange = viewModel::onConfirmPasswordChange,
-                label = { Text("Confirm Password *") },
-                leadingIcon = { Icon(Icons.Default.Lock, null) },
-                trailingIcon = {
-                    IconButton(onClick = { confirmVisible = !confirmVisible }) {
-                        Icon(if (confirmVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility, null)
-                    }
-                },
-                singleLine = true,
-                visualTransformation = if (confirmVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(14.dp),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Next)
-            )
-
-            Spacer(Modifier.height(4.dp))
-            Text(
-                "Business Details",
-                style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary
-            )
-
-            OutlinedTextField(
-                value = state.businessName,
-                onValueChange = viewModel::onBusinessNameChange,
-                label = { Text("Business Name *") },
-                leadingIcon = { Icon(Icons.Default.Business, null) },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(14.dp),
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next)
-            )
-
-            OutlinedTextField(
-                value = state.ownerName,
-                onValueChange = viewModel::onOwnerNameChange,
-                label = { Text("Owner Name") },
-                leadingIcon = { Icon(Icons.Default.Person, null) },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(14.dp),
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next)
-            )
-
-            OutlinedTextField(
-                value = state.phone,
-                onValueChange = viewModel::onPhoneChange,
-                label = { Text("Phone *") },
-                leadingIcon = { Icon(Icons.Default.Phone, null) },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(14.dp),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone, imeAction = ImeAction.Next)
-            )
-
-            OutlinedTextField(
-                value = state.email,
-                onValueChange = viewModel::onEmailChange,
-                label = { Text("Email (for OTP & reminders)") },
-                leadingIcon = { Icon(Icons.Default.Email, null) },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(14.dp),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Done)
-            )
+            item {
+                SectionCard(
+                    icon = { Icon(Icons.Default.Business, contentDescription = null, tint = FigmaColors.Green700, modifier = Modifier.size(18.dp)) },
+                    iconBackground = FigmaColors.Green200,
+                    title = "Business Details",
+                    titleColor = FigmaColors.Green800,
+                    subtitle = "Tell us about your business",
+                    subtitleColor = FigmaColors.Green600,
+                    bannerColor = FigmaColors.Green100,
+                    borderColor = FigmaColors.Green200
+                ) {
+                    FormInput(
+                        value = state.businessName,
+                        onValueChange = viewModel::onBusinessNameChange,
+                        placeholder = "Business Name *",
+                        leadingIcon = { Icon(Icons.Default.Business, contentDescription = null, tint = FigmaColors.Gray400, modifier = Modifier.size(18.dp)) },
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next)
+                    )
+                    FormInput(
+                        value = state.ownerName,
+                        onValueChange = viewModel::onOwnerNameChange,
+                        placeholder = "Owner Name",
+                        leadingIcon = { Icon(Icons.Default.Person, contentDescription = null, tint = FigmaColors.Gray400, modifier = Modifier.size(18.dp)) },
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next)
+                    )
+                    FormInput(
+                        value = state.phone,
+                        onValueChange = viewModel::onPhoneChange,
+                        placeholder = "Phone *",
+                        leadingIcon = { Icon(Icons.Default.Phone, contentDescription = null, tint = FigmaColors.Gray400, modifier = Modifier.size(18.dp)) },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone, imeAction = ImeAction.Next)
+                    )
+                    FormInput(
+                        value = state.email,
+                        onValueChange = viewModel::onEmailChange,
+                        placeholder = "Email (for reminders)",
+                        leadingIcon = { Icon(Icons.Default.Email, contentDescription = null, tint = FigmaColors.Gray400, modifier = Modifier.size(18.dp)) },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Done)
+                    )
+                }
+            }
 
             if (state.error != null) {
-                Text(
-                    state.error!!,
-                    color = MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.bodySmall,
-                    modifier = Modifier.fillMaxWidth()
+                item {
+                    Text(state.error!!, color = FigmaColors.Red600, fontSize = 12.sp, modifier = Modifier.fillMaxWidth())
+                }
+            }
+
+            item {
+                PrimaryButton(
+                    text = if (state.isLoading) "Creating account..." else "Create Account",
+                    onClick = { viewModel.register() },
+                    enabled = !state.isLoading,
+                    icon = {
+                        if (state.isLoading) {
+                            CircularProgressIndicator(modifier = Modifier.size(18.dp), color = FigmaColors.White, strokeWidth = 2.dp)
+                        } else {
+                            Icon(Icons.Default.PersonAdd, contentDescription = null, modifier = Modifier.size(18.dp))
+                        }
+                    }
                 )
             }
 
-            Button(
-                onClick = { viewModel.register() },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(52.dp),
-                enabled = !state.isLoading,
-                shape = RoundedCornerShape(14.dp)
-            ) {
-                if (state.isLoading) {
-                    CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color.White, strokeWidth = 2.dp)
-                } else {
-                    Text("Create Account", fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Already have an account?", fontSize = 13.sp, color = FigmaColors.Gray500)
+                    TextButton(onClick = onNavigateToLogin) {
+                        Text("Sign In", fontWeight = FontWeight.SemiBold, color = FigmaColors.Blue600, fontSize = 13.sp)
+                    }
                 }
             }
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text("Already have an account?", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                TextButton(onClick = onNavigateToLogin) {
-                    Text("Sign In", fontWeight = FontWeight.SemiBold)
-                }
-            }
-
-            Spacer(Modifier.height(16.dp))
         }
     }
 }

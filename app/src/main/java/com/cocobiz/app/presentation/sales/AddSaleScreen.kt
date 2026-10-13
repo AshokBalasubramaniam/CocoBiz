@@ -1,44 +1,29 @@
 package com.cocobiz.app.presentation.sales
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CalendarToday
-import androidx.compose.material.icons.filled.Eco
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Place
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SelectableDates
-import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -46,29 +31,36 @@ import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.cocobiz.app.R
 import com.cocobiz.app.domain.model.CoconutType
-import com.cocobiz.app.ui.components.CocoBizTextField
-import com.cocobiz.app.ui.components.CocoBizTopBar
+import com.cocobiz.app.ui.components.CoconutTypeSelector
+import com.cocobiz.app.ui.components.DatePickerField
+import com.cocobiz.app.ui.components.DropdownInput
+import com.cocobiz.app.ui.components.FormInput
+import com.cocobiz.app.ui.components.InfoCard
+import com.cocobiz.app.ui.components.NotesInput
+import com.cocobiz.app.ui.components.PrimaryButton
+import com.cocobiz.app.ui.components.ReminderCycleSelector
+import com.cocobiz.app.ui.components.SectionCard
+import com.cocobiz.app.ui.components.ToggleOption
+import com.cocobiz.app.ui.theme.FigmaColors
 import com.cocobiz.app.util.DateUtils.toDisplayString
-import com.cocobiz.app.util.DateUtils.toLocalDate
 import com.cocobiz.app.util.toCurrencyString
 import android.widget.Toast
 import java.time.Instant
-import java.time.LocalDate
 import java.time.ZoneId
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -88,13 +80,18 @@ fun AddSaleScreen(
         }
     }
 
-    var expandedDealerDropdown by remember { mutableStateOf(false) }
-
     Scaffold(
+        containerColor = FigmaColors.Gray100,
         topBar = {
-            CocoBizTopBar(
-                title = "Add New Sale",
-                onNavigateBack = onNavigateBack
+            AddSaleHeader(
+                onNavigateBack = onNavigateBack,
+                title = if (formState.isEditMode) "Edit Sale" else "Add New Sale"
+            )
+        },
+        bottomBar = {
+            AddSaleSaveBar(
+                isSaving = formState.isSaving,
+                onSave = viewModel::saveSale
             )
         }
     ) { innerPadding ->
@@ -102,288 +99,206 @@ fun AddSaleScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding),
-            contentPadding = PaddingValues(16.dp),
+            contentPadding = PaddingValues(12.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Dealer Selection Section
             item {
-                SaleFormSection(title = "Dealer Information") {
-                    // Dealer dropdown
-                    ExposedDropdownMenuBox(
-                        expanded = expandedDealerDropdown,
-                        onExpandedChange = { expandedDealerDropdown = it }
-                    ) {
-                        OutlinedTextField(
-                            value = formState.dealerName,
-                            onValueChange = { viewModel.updateDealerName(it) },
-                            label = { Text("Dealer Name *") },
-                            placeholder = { Text("Select or type dealer name") },
-                            leadingIcon = {
-                                Icon(
-                                    Icons.Default.Person,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.primary
-                                )
-                            },
-                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedDealerDropdown) },
-                            isError = formState.dealerNameError.isNotBlank(),
-                            shape = RoundedCornerShape(12.dp),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .menuAnchor()
+                SectionCard(
+                    icon = {
+                        Text(
+                            text = "👤",
+                            fontSize = 25.sp
                         )
-                        if (formState.dealerNameError.isNotBlank()) {
-                            Text(
-                                formState.dealerNameError,
-                                color = MaterialTheme.colorScheme.error,
-                                style = MaterialTheme.typography.bodySmall,
-                                modifier = Modifier.padding(start = 16.dp)
-                            )
-                        }
-                        if (formState.dealers.isNotEmpty()) {
-                            ExposedDropdownMenu(
-                                expanded = expandedDealerDropdown,
-                                onDismissRequest = { expandedDealerDropdown = false }
-                            ) {
-                                formState.dealers.filter {
-                                    formState.dealerName.isBlank() ||
-                                            it.dealerName.contains(formState.dealerName, ignoreCase = true)
-                                }.forEach { dealer ->
-                                    DropdownMenuItem(
-                                        text = {
-                                            Column {
-                                                Text(dealer.dealerName, fontWeight = FontWeight.Medium)
-                                                Text(
-                                                    dealer.place,
-                                                    style = MaterialTheme.typography.bodySmall,
-                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                                )
-                                            }
-                                        },
-                                        onClick = {
-                                            viewModel.selectDealer(dealer)
-                                            expandedDealerDropdown = false
-                                        }
-                                    )
-                                }
-                            }
-                        }
-                    }
-
-                    Spacer(Modifier.height(8.dp))
-
-                    CocoBizTextField(
-                        value = formState.dealerPlace,
-                        onValueChange = viewModel::updateDealerPlace,
-                        label = "Dealer Place",
-                        leadingIcon = Icons.Default.Place
-                    )
-                }
-            }
-
-            // Sales Date Section
-            item {
-                SaleFormSection(title = "Sale Information") {
-                    // Date picker trigger
-                    OutlinedTextField(
-                        value = formState.salesDate.toDisplayString(),
-                        onValueChange = {},
-                        label = { Text("Sale Date *") },
-                        readOnly = true,
+                    },
+                    iconBackground = FigmaColors.Blue100,
+                    title = "Dealer Information",
+                    titleColor = FigmaColors.Blue700,
+                    subtitle = "Enter dealer details",
+                    subtitleColor = FigmaColors.Blue400,
+                    bannerColor = FigmaColors.Blue50,
+                    borderColor = FigmaColors.Blue100
+                ) {
+                    DropdownInput(
+                        value = formState.dealerName,
+                        onValueChange = viewModel::updateDealerName,
+                        placeholder = "Dealer Name *",
+                        items = formState.dealers,
+                        itemLabel = { it.dealerName },
+                        itemSubLabel = { it.place },
+                        onItemSelected = viewModel::selectDealer,
                         leadingIcon = {
                             Icon(
-                                Icons.Default.CalendarToday,
+                                painterResource(R.drawable.ic_person_line),
                                 contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary
+                                tint = FigmaColors.Gray400,
+                                modifier = Modifier.size(18.dp)
                             )
                         },
-                        trailingIcon = {
-                            TextButton(onClick = { viewModel.toggleDatePicker(true) }) {
-                                Text("Change")
-                            }
-                        },
-                        shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier.fillMaxWidth()
+                        errorMessage = formState.dealerNameError
                     )
-
-                    Spacer(Modifier.height(8.dp))
-
-                    // Cycle days slider
-                    Column {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text(
-                                "Reminder Cycle",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Text(
-                                "${formState.cycleDays} Days",
-                                style = MaterialTheme.typography.labelMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.primary
+                    FormInput(
+                        value = formState.dealerPlace,
+                        onValueChange = viewModel::updateDealerPlace,
+                        placeholder = "Dealer Place",
+                        leadingIcon = {
+                            Icon(
+                                painterResource(R.drawable.ic_location_line),
+                                contentDescription = null,
+                                tint = FigmaColors.Gray400,
+                                modifier = Modifier.size(18.dp)
                             )
                         }
-                        Slider(
-                            value = formState.cycleDays.toFloat(),
-                            onValueChange = { viewModel.updateCycleDays(it.toInt()) },
-                            valueRange = 7f..365f,
-                            steps = 0
-                        )
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text("7d", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text("365d", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                    }
-
-                    Spacer(Modifier.height(8.dp))
-
-                    // Next sales date (read only)
-                    Surface(
-                        shape = RoundedCornerShape(12.dp),
-                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(16.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column {
-                                Text(
-                                    "Next Sale Date",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
-                                Text(
-                                    formState.nextSalesDate.toDisplayString(),
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
-                            }
-                            Text(
-                                "Auto-calculated",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
+                    )
                 }
             }
 
-            // Coconut Information
             item {
-                SaleFormSection(title = "Coconut Information") {
-                    // Coconut type selector
+                SectionCard(
+                    icon = {
+                        Text(
+                            text = "📅",
+                            fontSize = 25.sp
+                        )
+                    },
+                    iconBackground = FigmaColors.Green200,
+                    title = "Sale Information",
+                    titleColor = FigmaColors.Green800,
+                    subtitle = "Set sale date and reminder cycle",
+                    subtitleColor = FigmaColors.Green600,
+                    bannerColor = FigmaColors.Green100,
+                    borderColor = FigmaColors.Green200,
+                    contentSpacing = 16.dp
+                ) {
+                    DatePickerField(
+                        label = "Sale Date *",
+                        dateText = formState.salesDate.toDisplayString(),
+                        onChangeClick = { viewModel.toggleDatePicker(true) },
+                        dateIcon = {
+                            Icon(
+                                painterResource(R.drawable.ic_calendar_line),
+                                contentDescription = null,
+                                tint = FigmaColors.Blue500,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    )
+                    ReminderCycleSelector(
+                        days = formState.cycleDays,
+                        onDaysChange = viewModel::updateCycleDays
+                    )
+                    InfoCard(
+                        icon = {
+                            Icon(
+                                painterResource(R.drawable.ic_clock_line),
+                                contentDescription = null,
+                                tint = FigmaColors.Blue400,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        },
+                        label = "Next Sale Date",
+                        value = formState.nextSalesDate.toDisplayString(),
+                        badgeText = "Auto-calculated",
+                        containerColor = FigmaColors.Blue50
+                    )
+                }
+            }
+
+            item {
+                SectionCard(
+                    icon = {
+                        Text(
+                            text = "🥥",
+                            fontSize = 30.sp
+                        )
+                    },
+                    iconBackground = FigmaColors.Orange100,
+                    title = "Coconut Information",
+                    titleColor = FigmaColors.Orange700,
+                    subtitle = "Select type and enter quantity",
+                    subtitleColor = FigmaColors.Orange400,
+                    bannerColor = FigmaColors.Orange50,
+                    borderColor = FigmaColors.Orange100
+                ) {
                     Text(
                         "Coconut Type",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = FigmaColors.Gray600
                     )
-                    Spacer(Modifier.height(4.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        CoconutType.entries.forEach { type ->
-                            val isSelected = formState.coconutType == type
-                            Surface(
-                                shape = RoundedCornerShape(12.dp),
-                                color = if (isSelected) MaterialTheme.colorScheme.primaryContainer
-                                else MaterialTheme.colorScheme.surfaceVariant,
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .clickable { viewModel.updateCoconutType(type) }
-                                    .then(
-                                        if (isSelected) Modifier.border(
-                                            2.dp,
-                                            MaterialTheme.colorScheme.primary,
-                                            RoundedCornerShape(12.dp)
-                                        ) else Modifier
-                                    )
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(12.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.Center
-                                ) {
-                                    RadioButton(
-                                        selected = isSelected,
-                                        onClick = { viewModel.updateCoconutType(type) }
-                                    )
-                                    Text(
-                                        type.displayName,
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                        color = if (isSelected) MaterialTheme.colorScheme.primary
-                                        else MaterialTheme.colorScheme.onSurface
-                                    )
-                                }
-                            }
-                        }
-                    }
-
-                    Spacer(Modifier.height(12.dp))
-
+                    CoconutTypeSelector(
+                        options = listOf(
+                            ToggleOption("Tonnage", painterResource(R.drawable.ic_truck_icon)),
+                            ToggleOption("Single", painterResource(R.drawable.ic_coconut_piece_icon), iconSize = 44.dp)
+                        ),
+                        selectedIndex = CoconutType.entries.indexOf(formState.coconutType),
+                        onSelect = { index -> viewModel.updateCoconutType(CoconutType.entries[index]) }
+                    )
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        CocoBizTextField(
+                        FormInput(
                             value = formState.quantity,
                             onValueChange = viewModel::updateQuantity,
-                            label = if (formState.coconutType == CoconutType.TONNAGE) "Quantity (Tons) *" else "Quantity (Pieces) *",
-                            keyboardType = KeyboardType.Decimal,
-                            isError = formState.quantityError.isNotBlank(),
+                            placeholder = "quantity",
+                            label = if (formState.coconutType == CoconutType.TONNAGE) "Quantity (Tons)" else "Quantity (Pcs)",
+                            leadingIcon = {
+                                Icon(
+                                    painterResource(R.drawable.ic_weight_line),
+                                    contentDescription = null,
+                                    tint = FigmaColors.Gray400,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                             errorMessage = formState.quantityError,
+                            horizontalPadding = 12.dp,
                             modifier = Modifier.weight(1f)
                         )
-                        CocoBizTextField(
+                        FormInput(
                             value = formState.rate,
                             onValueChange = viewModel::updateRate,
-                            label = if (formState.coconutType == CoconutType.TONNAGE) "Rate/Ton (₹) *" else "Rate/Piece (₹) *",
-                            keyboardType = KeyboardType.Decimal,
-                            isError = formState.rateError.isNotBlank(),
+                            placeholder = "Enter rate",
+                            label = if (formState.coconutType == CoconutType.TONNAGE) "Rate/Ton (₹) *" else "Rate/Pc (₹) *",
+                            leadingIcon = {
+                                Icon(
+                                    painterResource(R.drawable.ic_rupee_line),
+                                    contentDescription = null,
+                                    tint = FigmaColors.Gray400,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                             errorMessage = formState.rateError,
+                            horizontalPadding = 12.dp,
                             modifier = Modifier.weight(1f)
                         )
                     }
 
-                    // Live total calculation
                     if (formState.totalAmount > 0) {
-                        Spacer(Modifier.height(12.dp))
                         Surface(
-                            shape = RoundedCornerShape(16.dp),
-                            color = MaterialTheme.colorScheme.primaryContainer,
+                            shape = RoundedCornerShape(12.dp),
+                            color = FigmaColors.Orange50,
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Row(
-                                modifier = Modifier.padding(16.dp),
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Column {
-                                    Text(
-                                        "Total Amount",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.onPrimaryContainer
-                                    )
+                                    Text("Total Amount", fontSize = 12.sp, color = FigmaColors.Orange600)
                                     Text(
                                         "${formState.quantity.toDoubleOrNull()?.toLong() ?: 0} × ₹${formState.rate.toDoubleOrNull()?.toLong() ?: 0}",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                                        fontSize = 12.sp,
+                                        color = FigmaColors.Orange600.copy(alpha = 0.7f)
                                     )
                                 }
                                 Text(
                                     formState.totalAmount.toCurrencyString(),
-                                    style = MaterialTheme.typography.headlineSmall,
+                                    fontSize = 20.sp,
                                     fontWeight = FontWeight.ExtraBold,
-                                    color = MaterialTheme.colorScheme.primary,
-                                    fontSize = 22.sp
+                                    color = FigmaColors.Orange700
                                 )
                             }
                         }
@@ -391,41 +306,40 @@ fun AddSaleScreen(
                 }
             }
 
-            // Notes
             item {
-                SaleFormSection(title = "Additional Notes") {
-                    CocoBizTextField(
+                SectionCard(
+                    icon = {
+                        Text(
+                            text = "📝",
+                            fontSize = 25.sp
+                        )
+                    },
+                    iconBackground = FigmaColors.Purple200,
+                    title = "Additional Notes",
+                    titleColor = FigmaColors.Purple900,
+                    subtitle = "Add any extra details (optional)",
+                    subtitleColor = FigmaColors.Purple600,
+                    bannerColor = FigmaColors.Purple100,
+                    borderColor = FigmaColors.Purple200
+                ) {
+                    NotesInput(
                         value = formState.notes,
                         onValueChange = viewModel::updateNotes,
-                        label = "Notes (Optional)",
-                        maxLines = 4,
-                        placeholder = "Any additional information..."
-                    )
-                }
-            }
-
-            // Save Button
-            item {
-                Spacer(Modifier.height(8.dp))
-                Button(
-                    onClick = viewModel::saveSale,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(56.dp),
-                    shape = RoundedCornerShape(16.dp),
-                    enabled = !formState.isSaving
-                ) {
-                    Text(
-                        if (formState.isSaving) "Saving..." else "Save Sale",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
+                        placeholder = "Notes (Optional)",
+                        leadingIcon = {
+                            Icon(
+                                painterResource(R.drawable.ic_note_line),
+                                contentDescription = null,
+                                tint = FigmaColors.Gray400,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
                     )
                 }
             }
         }
     }
 
-    // Date Picker Dialog
     if (formState.showDatePicker) {
         val datePickerState = rememberDatePickerState(
             initialSelectedDateMillis = formState.salesDate
@@ -457,26 +371,91 @@ fun AddSaleScreen(
 }
 
 @Composable
-private fun SaleFormSection(
-    title: String,
-    content: @Composable () -> Unit
+private fun AddSaleHeader(
+    onNavigateBack: () -> Unit,
+    title: String
 ) {
-    Card(
-        shape = RoundedCornerShape(20.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .shadow(elevation = 1.dp)
+            .background(FigmaColors.White)
+            .statusBarsPadding()
+            .padding(horizontal = 16.dp, vertical = 16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .clip(CircleShape)
+                    .background(FigmaColors.Blue50)
+                    .clickable { onNavigateBack() },
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    painterResource(R.drawable.ic_arrow_left_line),
+                    contentDescription = "Back",
+                    tint = FigmaColors.Blue600,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+            Column {
+                Text(
+                    title,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = FigmaColors.Gray900
+                )
+                Text(
+                    "Record your coconut sale details",
+                    fontSize = 12.sp,
+                    color = FigmaColors.Gray400
+                )
+            }
+        }
+        Image(
+            painter = painterResource(R.drawable.ic_coconut_hero),
+            contentDescription = null,
+            contentScale = ContentScale.Fit,
+            modifier = Modifier.size(width = 64.dp, height = 56.dp)
+        )
+    }
+}
+
+@Composable
+private fun AddSaleSaveBar(
+    isSaving: Boolean,
+    onSave: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .shadow(elevation = 8.dp)
+            .background(FigmaColors.White)
+    ) {
+        HorizontalDivider(color = FigmaColors.Gray100, thickness = 1.dp)
+        Column(
+            modifier = Modifier
+                .navigationBarsPadding()
+                .padding(16.dp)
+        ) {
+            PrimaryButton(
+                text = if (isSaving) "Saving..." else "Save Sale",
+                onClick = onSave,
+                enabled = !isSaving,
+                icon = {
+                    Icon(
+                        painterResource(R.drawable.ic_save_line),
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
             )
-            Spacer(Modifier.height(4.dp))
-            HorizontalDivider(color = MaterialTheme.colorScheme.primaryContainer)
-            Spacer(Modifier.height(12.dp))
-            content()
         }
     }
 }

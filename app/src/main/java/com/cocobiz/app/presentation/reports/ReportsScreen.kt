@@ -1,12 +1,8 @@
 package com.cocobiz.app.presentation.reports
 
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -14,6 +10,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -23,7 +20,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -31,50 +27,58 @@ import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.Assessment
 import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.Inventory2
+import androidx.compose.material.icons.filled.Receipt
+import androidx.compose.material.icons.filled.CurrencyRupee
+import androidx.compose.material.icons.filled.TrendingDown
 import androidx.compose.material.icons.filled.TrendingUp
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.cocobiz.app.R
 import com.cocobiz.app.domain.model.SaleStatus
 import com.cocobiz.app.domain.model.SalesEntry
 import com.cocobiz.app.ui.components.EmptyStateView
-import com.cocobiz.app.ui.theme.AvatarColors
+import com.cocobiz.app.ui.theme.ReportsColors
 import com.cocobiz.app.util.DateUtils.toDisplayString
 import com.cocobiz.app.util.toCurrencyString
+import com.cocobiz.app.util.toFormattedString
 import java.time.Month
 import java.time.format.TextStyle
 import java.util.Locale
-import kotlinx.coroutines.delay
+
+@Composable
+private fun avatarPalette() = listOf(
+    ReportsColors.AvatarPurple,
+    ReportsColors.AvatarGreen,
+    ReportsColors.AvatarOrange,
+    ReportsColors.AvatarBlue,
+    ReportsColors.AvatarRed
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -84,7 +88,6 @@ fun ReportsScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val snackbarHostState = remember { SnackbarHostState() }
-    val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
 
     LaunchedEffect(uiState.exportState) {
         when (uiState.exportState) {
@@ -100,273 +103,98 @@ fun ReportsScreen(
         }
     }
 
-    // ── Entrance animation states ─────────────────────────────────────
-    // Filter tabs: fade + rise from 10dp below
-    var filterVisible by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) { filterVisible = true }
-    val filterProgress by animateFloatAsState(
-        targetValue = if (filterVisible) 1f else 0f,
-        animationSpec = tween(durationMillis = 320, easing = FastOutSlowInEasing),
-        label = "filterProgress"
-    )
-
-    // Revenue card: soft spring scale 0.92→1.0 + fade, delayed 180ms
-    var cardVisible by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) {
-        delay(180)
-        cardVisible = true
-    }
-    val cardAlpha by animateFloatAsState(
-        targetValue = if (cardVisible) 1f else 0f,
-        animationSpec = tween(durationMillis = 400, easing = FastOutSlowInEasing),
-        label = "cardAlpha"
-    )
-    val cardScale by animateFloatAsState(
-        targetValue = if (cardVisible) 1f else 0.92f,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioNoBouncy,
-            stiffness = Spring.StiffnessMediumLow
-        ),
-        label = "cardScale"
-    )
-
     Scaffold(
-        topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        text = "Reports",
-                        style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                },
-                actions = {
-                    if (uiState.exportState == ExportState.EXPORTING) {
-                        Box(
-                            modifier = Modifier
-                                .size(40.dp)
-                                .clip(CircleShape)
-                                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
-                        }
-                    } else {
-                        Box(
-                            modifier = Modifier
-                                .size(40.dp)
-                                .clip(CircleShape)
-                                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape)
-                                .clickable { viewModel.exportPdf(context) },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                Icons.Default.Download,
-                                contentDescription = "Export PDF",
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
-                    }
-                    Spacer(Modifier.width(12.dp))
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
-            )
-        },
+        containerColor = Color.Transparent,
+        // The outer NavGraph Scaffold already reserves the status-bar/nav-bar insets.
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { innerPadding ->
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
+                .background(
+                    Brush.verticalGradient(
+                        listOf(ReportsColors.PageGradientTop, ReportsColors.PageGradientMid, ReportsColors.PageGradientEnd)
+                    )
+                )
                 .padding(innerPadding),
-            contentPadding = PaddingValues(bottom = 80.dp)
+            contentPadding = PaddingValues(bottom = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-
-            // ── Segmented filter tabs: fade + rise ────────────────────
             item {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 10.dp)
-                        .graphicsLayer {
-                            alpha = filterProgress
-                            translationY = 10.dp.toPx() * (1f - filterProgress)
-                        }
-                        .clip(RoundedCornerShape(50.dp))
-                        .background(if (isDark) Color(0xFF1C1C2E) else Color(0xFFF0F2F5))
-                        .padding(4.dp),
-                    horizontalArrangement = Arrangement.spacedBy(2.dp)
-                ) {
-                    ReportType.entries.forEach { type ->
-                        val selected = uiState.reportType == type
-                        val selectedBg = if (isDark) Color(0xFF3949AB) else MaterialTheme.colorScheme.primary
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .clip(RoundedCornerShape(50.dp))
-                                .background(if (selected) selectedBg else Color.Transparent)
-                                .clickable { viewModel.updateReportType(type) }
-                                .padding(vertical = 9.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.Center
-                            ) {
-                                Icon(
-                                    Icons.Default.CalendarToday,
-                                    contentDescription = null,
-                                    tint = if (selected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.size(12.dp)
-                                )
-                                Spacer(Modifier.width(4.dp))
-                                Text(
-                                    text = type.displayName,
-                                    fontSize = 12.sp,
-                                    fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
-                                    color = if (selected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
-                                    maxLines = 1
-                                )
-                            }
-                        }
-                    }
-                }
+                ReportsHeader(
+                    isExporting = uiState.exportState == ExportState.EXPORTING,
+                    onExportClick = { viewModel.exportPdf(context) }
+                )
             }
 
-            // ── Month chips: staggered fade left→right ────────────────
+            item {
+                PeriodTabsRow(
+                    selected = uiState.reportType,
+                    onSelect = viewModel::updateReportType
+                )
+            }
+
             if (uiState.reportType == ReportType.MONTHLY) {
                 item {
                     LazyRow(
-                        contentPadding = PaddingValues(horizontal = 16.dp),
+                        contentPadding = PaddingValues(horizontal = 20.dp),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        // items(Int) is a direct LazyListScope function — no extra import needed
                         items(12) { monthIdx ->
-                            AnimatedMonthChip(
+                            MonthChip(
                                 month = monthIdx + 1,
                                 selected = uiState.selectedMonth == monthIdx + 1,
-                                onClick = { viewModel.updateMonth(monthIdx + 1) },
-                                // stagger: first chip at 80ms, +40ms each
-                                animDelay = 80 + (monthIdx * 40),
-                                isDark = isDark
+                                onClick = { viewModel.updateMonth(monthIdx + 1) }
                             )
                         }
                     }
-                    Spacer(Modifier.height(8.dp))
                 }
             }
 
-            // ── Revenue card: scale spring + fade ────────────────────
             item {
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp)
-                        .graphicsLayer {
-                            scaleX = cardScale
-                            scaleY = cardScale
-                            alpha = cardAlpha
-                        },
-                    shape = RoundedCornerShape(20.dp),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(
-                                if (isDark)
-                                    Brush.linearGradient(listOf(Color(0xFF111E4A), Color(0xFF1A2D6B)))
-                                else
-                                    Brush.linearGradient(listOf(Color(0xFFEEF2FF), Color(0xFFE8EDFF)))
-                            )
-                            .padding(20.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(64.dp)
-                                    .clip(CircleShape)
-                                    .background(
-                                        if (isDark) Color(0xFF1E2F78)
-                                        else Color(0xFF3949AB).copy(alpha = 0.15f)
-                                    ),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    Icons.Default.AccountBalanceWallet,
-                                    contentDescription = null,
-                                    tint = if (isDark) Color(0xFF8BA4FF) else Color(0xFF1A237E),
-                                    modifier = Modifier.size(30.dp)
-                                )
-                            }
-                            Spacer(Modifier.width(16.dp))
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    "Total Revenue",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = if (isDark) Color(0xFF8BA4FF) else Color(0xFF3949AB).copy(alpha = 0.7f)
-                                )
-                                Spacer(Modifier.height(4.dp))
-                                Text(
-                                    uiState.totalRevenue.toCurrencyString(),
-                                    style = MaterialTheme.typography.headlineSmall,
-                                    fontWeight = FontWeight.ExtraBold,
-                                    color = if (isDark) Color.White else Color(0xFF1A237E)
-                                )
-                                Spacer(Modifier.height(4.dp))
-                                Text(
-                                    "${uiState.sales.size} transaction(s)",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = if (isDark) Color(0xFF6B8FFF) else Color(0xFF3949AB).copy(alpha = 0.6f)
-                                )
-                            }
-                            Box(
-                                modifier = Modifier
-                                    .size(44.dp)
-                                    .clip(CircleShape)
-                                    .background(if (isDark) Color(0xFF1E2F78) else Color.White),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    Icons.Default.TrendingUp,
-                                    contentDescription = null,
-                                    tint = if (isDark) Color(0xFF8BA4FF) else Color(0xFF1A237E),
-                                    modifier = Modifier.size(22.dp)
-                                )
-                            }
-                        }
-                    }
-                }
+                TotalRevenueCard(
+                    totalRevenue = uiState.totalRevenue,
+                    transactionCount = uiState.sales.size,
+                    trendPercent = uiState.trendPercent,
+                    sparklineValues = uiState.sparklineValues,
+                    modifier = Modifier.padding(horizontal = 20.dp)
+                )
             }
 
-            // ── Sale rows: staggered slide-up + fade ──────────────────
+            item {
+                ReportStatsRow(
+                    totalTransactions = uiState.sales.size,
+                    totalQuantity = uiState.totalQuantity,
+                    averageOrder = uiState.averageOrder
+                )
+            }
+
+            item {
+                Text(
+                    "Transactions",
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = ReportsColors.Slate900,
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp)
+                )
+            }
+
             if (uiState.sales.isEmpty()) {
                 item {
                     EmptyStateView(
                         icon = Icons.Default.Assessment,
                         title = "No Data",
                         subtitle = "No sales found for the selected period",
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(32.dp)
+                        modifier = Modifier.fillMaxWidth().padding(32.dp)
                     )
                 }
             } else {
-                itemsIndexed(
-                    items = uiState.sales,
-                    key = { _, sale -> sale.id }
-                ) { index, sale ->
-                    ReportSaleRow(
+                items(items = uiState.sales, key = { it.id }) { sale ->
+                    TransactionRow(
                         sale = sale,
-                        isDark = isDark,
-                        // Start after card finishes (180ms delay + ~300ms spring) → 480ms
-                        // then stagger each row 80ms apart
-                        animDelay = 480 + (index * 80)
+                        avatarColor = avatarPalette().let { it[(sale.id % it.size).toInt()] },
+                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp)
                     )
                 }
             }
@@ -374,171 +202,340 @@ fun ReportsScreen(
     }
 }
 
-// ── Month chip with staggered fade-in ────────────────────────────────────────
-
 @Composable
-private fun AnimatedMonthChip(
-    month: Int,
-    selected: Boolean,
-    onClick: () -> Unit,
-    animDelay: Int,
-    isDark: Boolean
+private fun ReportsHeader(
+    isExporting: Boolean,
+    onExportClick: () -> Unit
 ) {
-    var visible by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) {
-        delay(animDelay.toLong())
-        visible = true
-    }
-    val alpha by animateFloatAsState(
-        targetValue = if (visible) 1f else 0f,
-        animationSpec = tween(durationMillis = 220, easing = FastOutSlowInEasing),
-        label = "chipAlpha"
-    )
-    FilterChip(
-        selected = selected,
-        onClick = onClick,
-        modifier = Modifier.graphicsLayer { this.alpha = alpha },
-        label = {
-            Text(Month.of(month).getDisplayName(TextStyle.SHORT, Locale.getDefault()))
-        },
-        colors = FilterChipDefaults.filterChipColors(
-            selectedContainerColor = if (isDark) Color(0xFF3949AB) else MaterialTheme.colorScheme.primary,
-            selectedLabelColor = Color.White
-        )
-    )
-}
-
-// ── Sale row with slide-up + fade entrance ────────────────────────────────────
-
-@Composable
-private fun ReportSaleRow(
-    sale: SalesEntry,
-    isDark: Boolean,
-    animDelay: Int = 0
-) {
-    val avatarColor = AvatarColors[(sale.id % AvatarColors.size).toInt()]
-    val initials = sale.dealerName.trim().split(" ")
-        .take(2).joinToString("") { it.first().uppercaseChar().toString() }
-        .ifEmpty { "?" }
-
-    // Animate once when this composable first enters composition.
-    // LazyColumn keys items by sale.id so a given row only animates the
-    // first time it appears — never on scroll-back.
-    var visible by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) {
-        delay(animDelay.toLong())
-        visible = true
-    }
-    // Single 0→1 progress drives both alpha and translationY — one state read,
-    // one graphicsLayer call, zero layout invalidations.
-    val progress by animateFloatAsState(
-        targetValue = if (visible) 1f else 0f,
-        animationSpec = tween(durationMillis = 320, easing = FastOutSlowInEasing),
-        label = "rowProgress"
-    )
-
-    Card(
+    Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 5.dp)
-            .graphicsLayer {
-                alpha = progress
-                // Slides up from 20dp below its natural position
-                translationY = 20.dp.toPx() * (1f - progress)
-            },
+            .padding(horizontal = 20.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text("Reports", fontSize = 28.sp, fontWeight = FontWeight.ExtraBold, color = ReportsColors.Slate900, lineHeight = 30.sp)
+            Text(
+                "Track your business growth\nwith detailed insights",
+                fontSize = 13.sp,
+                color = ReportsColors.Slate500,
+                lineHeight = 17.sp,
+                modifier = Modifier.padding(top = 2.dp)
+            )
+        }
+        Box(modifier = Modifier.width(130.dp).height(100.dp)) {
+            Text(
+                "Grow\nTogether",
+                fontSize = 13.sp,
+                fontStyle = FontStyle.Italic,
+                fontWeight = FontWeight.Bold,
+                color = ReportsColors.Green600,
+                lineHeight = 15.sp,
+                modifier = Modifier.align(Alignment.TopEnd)
+            )
+            Image(
+                painter = painterResource(R.drawable.ic_dashboard_hero),
+                contentDescription = null,
+                contentScale = ContentScale.Fit,
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .size(width = 120.dp, height = 90.dp)
+            )
+            Surface(
+                shape = CircleShape,
+                color = ReportsColors.White,
+                shadowElevation = 3.dp,
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .size(36.dp)
+                    .clip(CircleShape)
+                    .then(if (!isExporting) Modifier.clickable(onClick = onExportClick) else Modifier)
+            ) {
+                Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+                    if (isExporting) {
+                        CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = ReportsColors.Green600)
+                    } else {
+                        Icon(Icons.Default.Download, contentDescription = "Export PDF", tint = ReportsColors.Gray700, modifier = Modifier.size(16.dp))
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PeriodTabsRow(
+    selected: ReportType,
+    onSelect: (ReportType) -> Unit
+) {
+    Surface(
+        shape = RoundedCornerShape(14.dp),
+        color = ReportsColors.White,
+        shadowElevation = 1.dp,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(4.dp),
+            horizontalArrangement = Arrangement.spacedBy(2.dp)
+        ) {
+            ReportType.entries.forEach { type ->
+                val isSelected = selected == type
+                Row(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(if (isSelected) ReportsColors.Green600 else Color.Transparent)
+                        .clickable { onSelect(type) }
+                        .padding(vertical = 8.dp),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        Icons.Default.CalendarToday,
+                        contentDescription = null,
+                        tint = if (isSelected) ReportsColors.White else ReportsColors.Gray500,
+                        modifier = Modifier.size(12.dp)
+                    )
+                    Spacer(Modifier.width(4.dp))
+                    Text(
+                        type.displayName,
+                        fontSize = 13.sp,
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                        color = if (isSelected) ReportsColors.White else ReportsColors.Gray500,
+                        maxLines = 1
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MonthChip(
+    month: Int,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    Surface(
+        shape = RoundedCornerShape(50),
+        color = ReportsColors.White,
+        border = androidx.compose.foundation.BorderStroke(1.5.dp, if (selected) ReportsColors.Green600 else ReportsColors.Gray200),
+        modifier = Modifier.clip(RoundedCornerShape(50)).clickable(onClick = onClick)
+    ) {
+        Text(
+            Month.of(month).getDisplayName(TextStyle.SHORT, Locale.getDefault()),
+            fontSize = 13.sp,
+            fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+            color = if (selected) ReportsColors.Green600 else ReportsColors.Gray500,
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 7.dp)
+        )
+    }
+}
+
+@Composable
+private fun TotalRevenueCard(
+    totalRevenue: Double,
+    transactionCount: Int,
+    trendPercent: Double?,
+    sparklineValues: List<Double>,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        shape = RoundedCornerShape(18.dp),
+        color = Color.Transparent,
+        border = androidx.compose.foundation.BorderStroke(1.dp, ReportsColors.GreenBorder),
+        modifier = modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(Brush.linearGradient(listOf(ReportsColors.GreenCardStart, ReportsColors.GreenCardEnd)))
+                .padding(horizontal = 18.dp, vertical = 16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(ReportsColors.GreenBorder),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(Icons.Default.AccountBalanceWallet, contentDescription = null, tint = ReportsColors.Green600, modifier = Modifier.size(22.dp))
+            }
+            Column(modifier = Modifier.weight(1f)) {
+                Text("Total Revenue", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = ReportsColors.Green600)
+                Text(totalRevenue.toCurrencyString(), fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, color = ReportsColors.Slate900)
+                Text("$transactionCount transaction(s)", fontSize = 12.sp, color = ReportsColors.Slate500)
+            }
+            Column(horizontalAlignment = Alignment.End) {
+                if (trendPercent != null) {
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = ReportsColors.White,
+                        border = androidx.compose.foundation.BorderStroke(1.dp, ReportsColors.GreenBorder)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Icon(
+                                if (trendPercent >= 0) Icons.Default.TrendingUp else Icons.Default.TrendingDown,
+                                contentDescription = null,
+                                tint = ReportsColors.Green600,
+                                modifier = Modifier.size(12.dp)
+                            )
+                            Text(
+                                "${if (trendPercent >= 0) "+" else ""}${trendPercent.toInt()}%",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = ReportsColors.Green600
+                            )
+                        }
+                    }
+                    Text("vs last month", fontSize = 10.sp, color = ReportsColors.Slate400, modifier = Modifier.padding(top = 2.dp))
+                }
+                Spacer(Modifier.height(4.dp))
+                Sparkline(values = sparklineValues, modifier = Modifier.size(width = 80.dp, height = 32.dp))
+            }
+        }
+    }
+}
+
+@Composable
+private fun Sparkline(values: List<Double>, modifier: Modifier = Modifier) {
+    if (values.size < 2) return
+    val maxV = values.max().coerceAtLeast(1.0)
+    val minV = values.min()
+    val range = (maxV - minV).takeIf { it > 0 } ?: 1.0
+    val lineColor = ReportsColors.Green600
+    Canvas(modifier = modifier) {
+        val stepX = size.width / (values.size - 1)
+        val points = values.mapIndexed { index, v ->
+            val x = index * stepX
+            val y = size.height - ((v - minV) / range * size.height).toFloat()
+            Offset(x, y)
+        }
+        for (i in 0 until points.size - 1) {
+            drawLine(
+                color = lineColor.copy(alpha = 0.6f),
+                start = points[i],
+                end = points[i + 1],
+                strokeWidth = 2.5f
+            )
+        }
+    }
+}
+
+@Composable
+private fun ReportStatsRow(
+    totalTransactions: Int,
+    totalQuantity: Double,
+    averageOrder: Double
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        ReportStatCard(icon = Icons.Default.Receipt, label = "Transactions", value = "$totalTransactions", modifier = Modifier.weight(1f))
+        ReportStatCard(icon = Icons.Default.Inventory2, label = "Quantity", value = totalQuantity.toFormattedString(), modifier = Modifier.weight(1f))
+        ReportStatCard(icon = Icons.Default.CurrencyRupee, label = "Average Order", value = averageOrder.toCurrencyString(), modifier = Modifier.weight(1f))
+    }
+}
+
+@Composable
+private fun ReportStatCard(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+    value: String,
+    modifier: Modifier = Modifier
+) {
+    Surface(
         shape = RoundedCornerShape(16.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        color = ReportsColors.White,
+        shadowElevation = 1.dp,
+        modifier = modifier
+    ) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            Icon(icon, contentDescription = null, tint = ReportsColors.Green600, modifier = Modifier.size(20.dp))
+            Spacer(Modifier.height(8.dp))
+            Text(label, fontSize = 10.sp, color = ReportsColors.Slate500, lineHeight = 12.sp, maxLines = 2)
+            Text(
+                value,
+                fontSize = if (value.length > 6) 14.sp else 18.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = ReportsColors.Slate900,
+                maxLines = 1
+            )
+        }
+    }
+}
+
+@Composable
+private fun TransactionRow(
+    sale: SalesEntry,
+    avatarColor: Color,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        shape = RoundedCornerShape(16.dp),
+        color = ReportsColors.White,
+        shadowElevation = 1.dp,
+        modifier = modifier.fillMaxWidth()
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(14.dp),
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // Avatar circle
             Box(
                 modifier = Modifier
-                    .size(52.dp)
+                    .size(42.dp)
                     .clip(CircleShape)
-                    .background(avatarColor.copy(alpha = if (isDark) 0.35f else 0.2f)),
+                    .background(avatarColor),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = initials,
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = avatarColor,
-                    fontSize = 16.sp
+                    sale.dealerName.take(1).uppercase(),
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = ReportsColors.Gray700
                 )
             }
-
-            // Dealer info
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(horizontal = 12.dp)
-            ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(sale.dealerName, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = ReportsColors.Slate900, maxLines = 1)
                 Text(
-                    sale.dealerName,
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
+                    "${sale.quantity.toFormattedString()} • ${sale.coconutType.displayName}",
+                    fontSize = 12.sp,
+                    color = ReportsColors.Slate500
                 )
-                Spacer(Modifier.height(2.dp))
-                Text(
-                    "${sale.dealerPlace} • ${sale.coconutType.displayName}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Spacer(Modifier.height(4.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        Icons.Default.CalendarToday,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(11.dp)
-                    )
-                    Spacer(Modifier.width(4.dp))
-                    Text(
-                        sale.salesDate.toDisplayString(),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Icon(Icons.Default.CalendarToday, contentDescription = null, tint = ReportsColors.Slate400, modifier = Modifier.size(10.dp))
+                    Text(sale.salesDate.toDisplayString(), fontSize = 11.sp, color = ReportsColors.Slate400)
                 }
             }
-
-            // Amount + status badge
             Column(horizontalAlignment = Alignment.End) {
-                Text(
-                    sale.totalAmount.toCurrencyString(),
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Spacer(Modifier.height(6.dp))
+                Text(sale.totalAmount.toCurrencyString(), fontSize = 14.sp, fontWeight = FontWeight.Bold, color = ReportsColors.Slate900)
                 val isActive = sale.status == SaleStatus.ACTIVE
-                val badgeBg = when {
-                    isDark && isActive  -> Color(0xFF1A3326)
-                    isDark && !isActive -> Color(0xFF1E2D6B)
-                    else                -> Color(0xFFEEEEEE)
-                }
-                val badgeText = when {
-                    isDark && isActive  -> Color(0xFF4CAF50)
-                    isDark && !isActive -> Color(0xFF8BA4FF)
-                    else                -> Color(0xFF757575)
-                }
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(20.dp))
-                        .background(badgeBg)
-                        .padding(horizontal = 10.dp, vertical = 4.dp)
+                Surface(
+                    shape = RoundedCornerShape(50),
+                    color = if (isActive) ReportsColors.StatusActiveBg else ReportsColors.StatusDoneBg
                 ) {
                     Text(
                         if (isActive) "Active" else "Done",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = badgeText,
-                        fontWeight = FontWeight.Medium
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = if (isActive) ReportsColors.StatusActiveText else ReportsColors.StatusDoneText,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 3.dp)
                     )
                 }
             }

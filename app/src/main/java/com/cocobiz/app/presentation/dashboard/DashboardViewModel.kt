@@ -8,6 +8,7 @@ import com.cocobiz.app.domain.model.SaleStatus
 import com.cocobiz.app.domain.model.SalesEntry
 import com.cocobiz.app.domain.repository.SalesRepository
 import com.cocobiz.app.domain.repository.SettingsRepository
+import com.cocobiz.app.domain.repository.UserProfileRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -24,14 +25,18 @@ enum class ViewMode { NORMAL, NEXT_HARVESTING, YEAR_REPORT }
 data class DashboardUiState(
     val activeSales: List<SalesEntry> = emptyList(),
     val completedSales: List<SalesEntry> = emptyList(),
+    val allSales: List<SalesEntry> = emptyList(),
     val yearSales: List<SalesEntry> = emptyList(),
+    val upcomingSales: List<SalesEntry> = emptyList(),
     val stats: DashboardStats = DashboardStats(),
+    val nextHarvestDate: LocalDate? = null,
     val searchQuery: String = "",
     val isLoading: Boolean = false,
     val filterType: FilterType = FilterType.ALL,
     val sortType: SortType = SortType.NEWEST,
     val viewMode: ViewMode = ViewMode.NORMAL,
-    val settings: AppSettings = AppSettings()
+    val settings: AppSettings = AppSettings(),
+    val ownerName: String = ""
 )
 
 enum class FilterType(val label: String) {
@@ -48,7 +53,8 @@ enum class SortType(val label: String) {
 @HiltViewModel
 class DashboardViewModel @Inject constructor(
     private val salesRepository: SalesRepository,
-    private val settingsRepository: SettingsRepository
+    private val settingsRepository: SettingsRepository,
+    private val userProfileRepository: UserProfileRepository
 ) : ViewModel() {
 
     private val _searchQuery = MutableStateFlow("")
@@ -60,25 +66,34 @@ class DashboardViewModel @Inject constructor(
         salesRepository.getAllSales(),
         salesRepository.getActiveSalesCount(),
         salesRepository.getCompletedSalesCount(),
-        salesRepository.getTotalActiveRevenue(),
         salesRepository.getUpcomingSales(7L),
         _searchQuery,
         _filterType,
         _sortType,
         _viewMode,
-        settingsRepository.getSettings()
+        settingsRepository.getSettings(),
+        userProfileRepository.getProfile()
     ) { args ->
         @Suppress("UNCHECKED_CAST")
         val allSales = args[0] as List<SalesEntry>
         val activeCount = args[1] as Int
         val completedCount = args[2] as Int
-        val totalRevenue = args[3] as Double
-        val upcoming = args[4] as List<SalesEntry>
-        val query = args[5] as String
-        val filter = args[6] as FilterType
-        val sort = args[7] as SortType
-        val mode = args[8] as ViewMode
-        val settings = args[9] as AppSettings
+        val upcoming = args[3] as List<SalesEntry>
+        val query = args[4] as String
+        val filter = args[5] as FilterType
+        val sort = args[6] as SortType
+        val mode = args[7] as ViewMode
+        val settings = args[8] as AppSettings
+        val profile = args[9] as com.cocobiz.app.domain.model.UserProfile?
+
+        // Always computed from the full, unfiltered sale list — must not depend on
+        // the currently selected search query or Active/Completed/All tab, otherwise
+        // switching tabs would change what "Total Amount" / "Next Harvest" report.
+        val totalRevenue = allSales.sumOf { it.totalAmount }
+        val nextHarvestDate = allSales
+            .filter { it.status == SaleStatus.ACTIVE }
+            .minByOrNull { it.nextSalesDate }
+            ?.nextSalesDate
 
         val oneYearAgo = LocalDate.now().minusYears(1)
         val yearSales = allSales
@@ -123,18 +138,22 @@ class DashboardViewModel @Inject constructor(
         DashboardUiState(
             activeSales = activeSales,
             completedSales = completedSales,
+            allSales = filtered,
             yearSales = yearSales,
+            upcomingSales = upcoming,
             stats = DashboardStats(
                 totalActiveSales = activeCount,
                 totalCompletedSales = completedCount,
                 totalRevenue = totalRevenue,
                 upcomingReminders = upcoming.size
             ),
+            nextHarvestDate = nextHarvestDate,
             searchQuery = query,
             filterType = filter,
             sortType = sort,
             viewMode = mode,
-            settings = settings
+            settings = settings,
+            ownerName = profile?.ownerName.orEmpty()
         )
     }.stateIn(
         scope = viewModelScope,

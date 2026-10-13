@@ -3,7 +3,7 @@ package com.cocobiz.app.data.local
 import android.content.Context
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
-import com.cocobiz.app.data.remote.dto.UserInfo
+import com.cocobiz.app.domain.repository.LocalUser
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -22,13 +22,9 @@ class AuthPreferences @Inject constructor(@ApplicationContext context: Context) 
         EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
     )
 
-    var token: String?
-        get() = prefs.getString(KEY_TOKEN, null)
-        set(v) = prefs.edit().putString(KEY_TOKEN, v).apply()
-
-    var userId: String
-        get() = prefs.getString(KEY_USER_ID, "") ?: ""
-        set(v) = prefs.edit().putString(KEY_USER_ID, v).apply()
+    var isLoggedIn: Boolean
+        get() = prefs.getBoolean(KEY_LOGGED_IN, false)
+        set(v) = prefs.edit().putBoolean(KEY_LOGGED_IN, v).apply()
 
     var username: String
         get() = prefs.getString(KEY_USERNAME, "") ?: ""
@@ -58,25 +54,21 @@ class AuthPreferences @Inject constructor(@ApplicationContext context: Context) 
         get() = prefs.getString(KEY_R_FREQ, "DAILY") ?: "DAILY"
         set(v) = prefs.edit().putString(KEY_R_FREQ, v).apply()
 
-    val isLoggedIn: Boolean get() = !token.isNullOrBlank()
-
-    fun saveAuth(token: String, user: UserInfo) {
-        this.token = token
-        this.userId = user.id
+    fun saveAuth(user: LocalUser) {
+        this.isLoggedIn = true
         this.username = user.username
         this.email = user.email
         this.phone = user.phone
         this.businessName = user.businessName
         this.ownerName = user.ownerName
-        this.reminderChannel = user.reminderChannel ?: "EMAIL"
-        this.reminderFrequency = user.reminderFrequency ?: "DAILY"
+        this.reminderChannel = user.reminderChannel
+        this.reminderFrequency = user.reminderFrequency
     }
 
     fun clear() = prefs.edit().clear().apply()
 
     companion object {
-        private const val KEY_TOKEN = "token"
-        private const val KEY_USER_ID = "user_id"
+        private const val KEY_LOGGED_IN = "logged_in"
         private const val KEY_USERNAME = "username"
         private const val KEY_EMAIL = "email"
         private const val KEY_PHONE = "phone"

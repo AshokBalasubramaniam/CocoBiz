@@ -2,8 +2,7 @@ package com.cocobiz.app.presentation.auth
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.cocobiz.app.data.remote.api.AuthApiService
-import com.cocobiz.app.data.remote.dto.RegisterRequest
+import com.cocobiz.app.domain.repository.AuthRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -27,7 +26,7 @@ data class RegisterUiState(
 
 @HiltViewModel
 class RegisterViewModel @Inject constructor(
-    private val authApi: AuthApiService
+    private val authRepository: AuthRepository
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(RegisterUiState())
@@ -54,15 +53,13 @@ class RegisterViewModel @Inject constructor(
         viewModelScope.launch {
             _state.update { it.copy(isLoading = true, error = null) }
             try {
-                authApi.register(
-                    RegisterRequest(
-                        username = s.username.trim().lowercase(),
-                        password = s.password,
-                        email = s.email.trim(),
-                        phone = s.phone.trim(),
-                        businessName = s.businessName.trim(),
-                        ownerName = s.ownerName.trim()
-                    )
+                authRepository.register(
+                    username = s.username.trim().lowercase(),
+                    password = s.password,
+                    email = s.email.trim(),
+                    phone = s.phone.trim(),
+                    businessName = s.businessName.trim(),
+                    ownerName = s.ownerName.trim()
                 )
                 _state.update { it.copy(isLoading = false, isSuccess = true) }
             } catch (e: Exception) {

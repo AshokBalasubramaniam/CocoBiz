@@ -3,6 +3,7 @@ package com.cocobiz.app
 import android.app.Application
 import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
+import com.cocobiz.app.util.NotificationUtils
 import dagger.hilt.android.HiltAndroidApp
 import javax.inject.Inject
 
@@ -19,5 +20,6 @@ class CocoBizApp : Application(), Configuration.Provider {
 
     override fun onCreate() {
         super.onCreate()
+        NotificationUtils.createNotificationChannels(this)
     }
 }

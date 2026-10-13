@@ -5,10 +5,12 @@ import androidx.room.RoomDatabase
 import com.cocobiz.app.data.local.dao.DealerDao
 import com.cocobiz.app.data.local.dao.SalesEntryDao
 import com.cocobiz.app.data.local.dao.SettingsDao
+import com.cocobiz.app.data.local.dao.UserDao
 import com.cocobiz.app.data.local.dao.UserProfileDao
 import com.cocobiz.app.data.local.entity.DealerEntity
 import com.cocobiz.app.data.local.entity.SalesEntryEntity
 import com.cocobiz.app.data.local.entity.SettingsEntity
+import com.cocobiz.app.data.local.entity.UserEntity
 import com.cocobiz.app.data.local.entity.UserProfileEntity
 
 @Database(
@@ -16,9 +18,10 @@ import com.cocobiz.app.data.local.entity.UserProfileEntity
         UserProfileEntity::class,
         DealerEntity::class,
         SalesEntryEntity::class,
-        SettingsEntity::class
+        SettingsEntity::class,
+        UserEntity::class
     ],
-    version = 1,
+    version = 4,
     exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -26,6 +29,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun dealerDao(): DealerDao
     abstract fun salesEntryDao(): SalesEntryDao
     abstract fun settingsDao(): SettingsDao
+    abstract fun userDao(): UserDao
 
     companion object {
         const val DATABASE_NAME = "cocobiz_db"

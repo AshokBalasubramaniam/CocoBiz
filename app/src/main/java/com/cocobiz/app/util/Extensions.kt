@@ -8,13 +8,9 @@ fun Double.toCurrencyString(): String {
     return format.format(this)
 }
 
-fun Double.toCompactCurrencyString(): String = when {
-    this >= 1_00_00_000 -> "₹${"%.1f".format(this / 1_00_00_000)}Cr"
-    this >= 1_00_000    -> "₹${"%.1f".format(this / 1_00_000)}L"
-    this >= 1_000       -> "₹${"%.1f".format(this / 1_000)}K"
-    else                -> "₹${toLong()}"
+fun Double.toCompactCurrencyString(): String {
+    return "₹%,.2f".format(this)
 }
-
 fun Double.toFormattedString(): String {
     return if (this == kotlin.math.floor(this)) {
         "%.0f".format(this)

@@ -7,6 +7,7 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
@@ -58,6 +59,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
@@ -66,13 +68,30 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.material.icons.filled.Assessment
+import androidx.compose.material.icons.filled.CurrencyRupee
+import androidx.compose.material.icons.filled.People
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.ui.res.painterResource
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.cocobiz.app.R
+import com.cocobiz.app.domain.model.SalesEntry
 import com.cocobiz.app.ui.components.ConfirmationDialog
+import com.cocobiz.app.ui.components.CtaBanner
+import com.cocobiz.app.ui.components.DashboardSectionTitle
+import com.cocobiz.app.ui.components.DashboardStatCard
 import com.cocobiz.app.ui.components.EmptyStateView
 import com.cocobiz.app.ui.components.GradientStatCard
+import com.cocobiz.app.ui.components.GreetingHeader
+import com.cocobiz.app.ui.components.HeroBanner
+import com.cocobiz.app.ui.components.QuickActionButton
 import com.cocobiz.app.ui.components.SalesCard
+import com.cocobiz.app.ui.components.SalesTab
+import com.cocobiz.app.ui.components.SalesTabRow
 import com.cocobiz.app.ui.components.SectionHeader
+import com.cocobiz.app.ui.components.UpcomingReminderCard
+import com.cocobiz.app.ui.theme.DashboardColors
 import com.cocobiz.app.ui.theme.StatBlue
 import com.cocobiz.app.ui.theme.StatBlueLight
 import com.cocobiz.app.ui.theme.StatOrange
@@ -83,6 +102,8 @@ import com.cocobiz.app.ui.theme.StatTeal
 import com.cocobiz.app.ui.theme.StatTealLight
 import com.cocobiz.app.util.toCompactCurrencyString
 import com.cocobiz.app.util.toCurrencyString
+import com.cocobiz.app.util.toFormattedString
+import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlinx.coroutines.delay
@@ -92,6 +113,9 @@ import kotlinx.coroutines.delay
 fun DashboardScreen(
     onAddSale: () -> Unit,
     onEditSale: (Long) -> Unit,
+    onNavigateToDealers: () -> Unit = {},
+    onNavigateToReports: () -> Unit = {},
+    onNavigateToSettings: () -> Unit = {},
     viewModel: DashboardViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -143,6 +167,7 @@ fun DashboardScreen(
         )
     }
 
+    if (isSearchActive || uiState.viewMode != ViewMode.NORMAL) {
     Scaffold(
         topBar = {
             TopAppBar(
@@ -566,12 +591,302 @@ fun DashboardScreen(
             }
         }
     }
+    } else {
+        NormalDashboardContent(
+            uiState = uiState,
+            viewModel = viewModel,
+            onAddSale = onAddSale,
+            onEditSale = onEditSale,
+            onNavigateToDealers = onNavigateToDealers,
+            onNavigateToReports = onNavigateToReports,
+            onNavigateToSettings = onNavigateToSettings,
+            onSearchClick = { isSearchActive = true },
+            onDeleteRequest = { saleToDelete = it },
+            onCompleteRequest = { saleToComplete = it }
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun NormalDashboardContent(
+    uiState: DashboardUiState,
+    viewModel: DashboardViewModel,
+    onAddSale: () -> Unit,
+    onEditSale: (Long) -> Unit,
+    onNavigateToDealers: () -> Unit,
+    onNavigateToReports: () -> Unit,
+    onNavigateToSettings: () -> Unit,
+    onSearchClick: () -> Unit,
+    onDeleteRequest: (Long) -> Unit,
+    onCompleteRequest: (Long) -> Unit
+) {
+    val greeting = remember {
+        when (LocalTime.now().hour) {
+            in 0..11 -> "Good Morning,"
+            in 12..16 -> "Good Afternoon,"
+            else -> "Good Evening,"
+        }
+    }
+    val firstName = uiState.ownerName.trim().split(" ").firstOrNull().orEmpty().ifBlank { "there" }
+    val avatarInitial = firstName.take(1).uppercase().ifBlank { "?" }
+
+    val tabs = listOf(
+        SalesTab(FilterType.ACTIVE, "Active", uiState.stats.totalActiveSales),
+        SalesTab(FilterType.COMPLETED, "Completed", uiState.stats.totalCompletedSales),
+        SalesTab(FilterType.ALL, "All Sales", uiState.allSales.size)
+    )
+    val listForTab: List<SalesEntry> = when (uiState.filterType) {
+        FilterType.ACTIVE -> uiState.activeSales
+        FilterType.COMPLETED -> uiState.completedSales
+        FilterType.ALL -> uiState.allSales
+    }
+
+    val nextReminder = uiState.upcomingSales.minByOrNull { it.nextSalesDate }
+
+    Scaffold(
+        containerColor = Color.Transparent,
+        // The outer NavGraph Scaffold already reserves the status-bar/nav-bar
+        // insets for this screen's content; consuming them again here would
+        // double the top gap above the greeting header.
+        contentWindowInsets = WindowInsets(0, 0, 0, 0)
+    ) { innerPadding ->
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.verticalGradient(
+                        listOf(DashboardColors.ShellTop, DashboardColors.ShellMid, DashboardColors.ShellBottom)
+                    )
+                )
+                .padding(innerPadding),
+            contentPadding = PaddingValues(bottom = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            item {
+                Spacer(Modifier.height(8.dp))
+                GreetingHeader(
+                    greeting = greeting,
+                    name = firstName,
+                    onSearchClick = onSearchClick,
+                    onNotificationsClick = { viewModel.setViewMode(ViewMode.NEXT_HARVESTING) },
+                    avatarInitial = avatarInitial,
+                    hasUnreadNotifications = uiState.stats.upcomingReminders > 0
+                )
+            }
+
+            item {
+                HeroBanner(heroImage = painterResource(R.drawable.ic_dashboard_hero))
+            }
+
+            item {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Max),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        DashboardStatCard(
+                            title = "Active Sales",
+                            value = "${uiState.stats.totalActiveSales}",
+                            subtitle = "Ongoing deals",
+                            icon = Icons.Default.ShoppingCart,
+                            iconBackground = DashboardColors.GreenLight,
+                            accentColor = DashboardColors.BrandGreen,
+                            modifier = Modifier.weight(1f).fillMaxHeight(),
+                            onClick = { viewModel.updateFilter(FilterType.ACTIVE) }
+                        )
+                        DashboardStatCard(
+                            title = "Completed Sales",
+                            value = "${uiState.stats.totalCompletedSales}",
+                            subtitle = "This month",
+                            icon = Icons.Default.CheckCircle,
+                            iconBackground = DashboardColors.OrangeLight,
+                            accentColor = DashboardColors.Orange,
+                            valueColor = DashboardColors.Orange,
+                            modifier = Modifier.weight(1f).fillMaxHeight(),
+                            onClick = { viewModel.updateFilter(FilterType.COMPLETED) }
+                        )
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Max),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        DashboardStatCard(
+                            title = "Total Amount",
+                            value = uiState.stats.totalRevenue.toCompactCurrencyString(),
+                            subtitle = "Tap for year report",
+                            icon = Icons.Default.CurrencyRupee,
+                            iconBackground = DashboardColors.PurpleLight,
+                            accentColor = DashboardColors.Purple,
+                            valueFontSize = 20.sp,
+                            modifier = Modifier.weight(1f).fillMaxHeight(),
+                            onClick = { viewModel.setViewMode(ViewMode.YEAR_REPORT) }
+                        )
+                        DashboardStatCard(
+                            title = "Next Harvest",
+                            value = nextPaymentLabel(uiState),
+                            subtitle = "${uiState.stats.upcomingReminders} due",
+                            icon = Icons.Default.CalendarToday,
+                            iconBackground = DashboardColors.BlueLight,
+                            accentColor = DashboardColors.Blue,
+                            valueFontSize = 18.sp,
+                            modifier = Modifier.weight(1f).fillMaxHeight(),
+                            onClick = { viewModel.setViewMode(ViewMode.NEXT_HARVESTING) }
+                        )
+                    }
+                }
+            }
+
+            item {
+                CtaBanner(
+                    onAddSaleClick = onAddSale,
+                    modifier = Modifier.padding(horizontal = 20.dp)
+                )
+            }
+
+            item {
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    DashboardSectionTitle(
+                        icon = Icons.Default.Add,
+                        iconTint = DashboardColors.BrandGreen,
+                        title = "Quick Actions"
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        QuickActionButton(
+                            label = "Add Sale",
+                            background = DashboardColors.GreenLight,
+                            onClick = onAddSale,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(CircleShape)
+                                    .background(DashboardColors.BrandGreen),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.Default.Add, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
+                            }
+                        }
+                        QuickActionButton(
+                            label = "Manage Dealers",
+                            background = DashboardColors.BlueLight,
+                            onClick = onNavigateToDealers,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(Icons.Default.People, contentDescription = null, tint = DashboardColors.Blue, modifier = Modifier.size(26.dp))
+                        }
+                        QuickActionButton(
+                            label = "View Reports",
+                            background = DashboardColors.PurpleLight,
+                            onClick = onNavigateToReports,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(Icons.Default.Assessment, contentDescription = null, tint = DashboardColors.Purple, modifier = Modifier.size(26.dp))
+                        }
+                        QuickActionButton(
+                            label = "App Settings",
+                            background = DashboardColors.OrangeLight,
+                            onClick = onNavigateToSettings,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(Icons.Default.Settings, contentDescription = null, tint = DashboardColors.Orange, modifier = Modifier.size(26.dp))
+                        }
+                    }
+                }
+            }
+
+            item {
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    DashboardSectionTitle(
+                        icon = Icons.Default.CalendarToday,
+                        iconTint = DashboardColors.BrandGreen,
+                        title = "Upcoming Reminders",
+                        actionLabel = "View all",
+                        onAction = { viewModel.setViewMode(ViewMode.NEXT_HARVESTING) }
+                    )
+                    if (nextReminder != null) {
+                        val unitLabel = if (nextReminder.coconutType == com.cocobiz.app.domain.model.CoconutType.TONNAGE) "Tons" else "Pcs"
+                        UpcomingReminderCard(
+                            dayNumber = nextReminder.nextSalesDate.dayOfMonth.toString(),
+                            month = DateTimeFormatter.ofPattern("MMM", Locale.getDefault()).format(nextReminder.nextSalesDate),
+                            title = "Sale due for ${nextReminder.dealerName}",
+                            subtitle = "${nextReminder.quantity.toFormattedString()} $unitLabel · ${nextReminder.coconutType.displayName}",
+                            dueBadge = if (nextReminder.isOverdue) "Overdue"
+                                else if (nextReminder.remainingDays == 0L) "Due today"
+                                else "In ${nextReminder.remainingDays} days"
+                        )
+                    } else {
+                        Text(
+                            "No upcoming reminders",
+                            fontSize = 13.sp,
+                            color = DashboardColors.Gray500
+                        )
+                    }
+                }
+            }
+
+            item {
+                SalesTabRow(
+                    tabs = tabs,
+                    selected = uiState.filterType,
+                    onSelect = { viewModel.updateFilter(it) },
+                    modifier = Modifier.padding(horizontal = 20.dp)
+                )
+            }
+
+            if (listForTab.isEmpty()) {
+                item {
+                    EmptyStateView(
+                        icon = Icons.Default.ShoppingCart,
+                        title = "No sales here yet",
+                        subtitle = "Tap the Add Sale action above to record your first coconut sale",
+                        modifier = Modifier.fillMaxWidth().padding(24.dp)
+                    )
+                }
+            } else {
+                itemsIndexed(items = listForTab, key = { _, sale -> "${uiState.filterType}_${sale.id}" }) { index, sale ->
+                    var visible by remember { mutableStateOf(false) }
+                    LaunchedEffect(sale.id, uiState.filterType) { delay((index * 60).toLong()); visible = true }
+                    val progress by animateFloatAsState(
+                        targetValue = if (visible) 1f else 0f,
+                        animationSpec = tween(durationMillis = 280, easing = FastOutSlowInEasing),
+                        label = "dashSale$index"
+                    )
+                    SalesCard(
+                        sale = sale,
+                        onEdit = { onEditSale(sale.id) },
+                        onDelete = { onDeleteRequest(sale.id) },
+                        onComplete = { onCompleteRequest(sale.id) },
+                        modifier = Modifier
+                            .padding(horizontal = 20.dp, vertical = 6.dp)
+                            .graphicsLayer {
+                                alpha = progress
+                                translationY = 16.dp.toPx() * (1f - progress)
+                            }
+                    )
+                }
+            }
+        }
+    }
 }
 
 private fun nextPaymentLabel(uiState: DashboardUiState): String {
-    val nextSale = uiState.activeSales.minByOrNull { it.nextSalesDate }
-        ?: uiState.completedSales.minByOrNull { it.nextSalesDate }
-    return nextSale?.nextSalesDate?.let {
+    return uiState.nextHarvestDate?.let {
         DateTimeFormatter.ofPattern("d MMM yy", Locale.getDefault()).format(it)
     } ?: "—"
 }
